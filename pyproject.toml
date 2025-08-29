@@ -9,3 +9,6 @@ exclude_lines = [
 
 [tool.setuptools]
 packages = ["metadetect"]
+
+[tool.pytest.ini_options]
+# Can be empty. Needed to stop pytest searching in parent directories.
