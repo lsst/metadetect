@@ -1,5 +1,6 @@
 setupRequired(meas_base)
 setupRequired(meas_deblender)
 setupRequired(pex_exceptions)
+setupOptional(descwl_shear_sims)
 
 envPrepend(PYTHONPATH, ${PRODUCT_DIR})
