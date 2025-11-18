@@ -33,7 +33,7 @@ LOG = logging.getLogger('lsst_metadetect')
 
 
 def run_metadetect(
-    mbexp, noise_mbexp, rng, mfrac_mbexp=None, ormasks=None, config=None, show=False,
+    mbexp, noise_mbexp, rng, mfrac_mbexp=None, ormasks=None, config=None, show=False, many_fitters=False,
 ):
     """
     Run metadetection on the input MultiBandObsList
@@ -66,6 +66,9 @@ def run_metadetect(
         in this dict override defaults; see lsst_configs.py
     show: bool, optional
         if set to True images will be shown
+    many_fitters: bool, optional
+        if set to True, use version that uses multiple fitters to characterize
+        objects.
 
     Returns
     -------
@@ -76,16 +79,114 @@ def run_metadetect(
     """
 
     config_override = config if config is not None else {}
-    config = MetadetectConfig()
+    if many_fitters:
+        config = MetadetectMultiFitConfig()
+    else:
+        config = MetadetectConfig()
     config.setDefaults()
 
     override_config(config, config_override)
 
     config.freeze()
     config.validate()
-    task = MetadetectTask(config=config)
+
+    if many_fitters:
+        task = MetadetectMutliFitTask(config=config)
+    else:
+        task = MetadetectTask(config=config)
+
     result = task.run(mbexp, noise_mbexp, rng, mfrac_mbexp, ormasks, show=show,)
     return result
+
+
+class NgmixAdmomConfig(Config):
+    ntry = Field[int](
+        doc="Number of tries for fitting original PSFs",
+        default=4,
+    )
+    ngauss = Field[int](
+        doc="Number of Gaussians to fit",
+        default=1,
+    )
+    guess_from_moms = Field[bool](
+        doc="Estimate Gaussain parameters from moments",
+        default=True,
+    )
+
+
+class NgmixGaussConfig(Config):
+    fwhm = Field[float](
+        doc="FWHM of the Gaussian weight function (in arcseconds)",
+        default=DEFAULT_WEIGHT_FWHMS['gauss'],
+    )
+    fwhm_smooth = Field[float](
+        doc="FWHM of the Gaussian smoothing function (in arcseconds)",
+        default=DEFAULT_FWHM_SMOOTH,
+    )
+    fwhm_reg = Field[float](
+        doc="FWHM of the Gaussian regularization function (in arcseconds)",
+        default=DEFAULT_FWHM_REG,
+    )
+
+
+class NgmixAdmomConfig(Config):
+    ntry = Field[int](
+        doc="Number of tries for fitting original PSFs",
+        default=4,
+    )
+    ngauss = Field[int](
+        doc="Number of Gaussians to fit",
+        default=1,
+    )
+    guess_from_moms = Field[bool](
+        doc="Estimate Gaussain parameters from moments",
+        default=True,
+    )
+
+
+class NgmixPGaussConfig(Config):
+    fwhm = Field[float](
+        doc="FWHM of the Gaussian weight function (in arcseconds)",
+        default=DEFAULT_WEIGHT_FWHMS['pgauss'],
+    )
+    fwhm_smooth = Field[float](
+        doc="FWHM of the Gaussian smoothing function (in arcseconds)",
+        default=DEFAULT_FWHM_SMOOTH,
+    )
+    fwhm_reg = Field[float](
+        doc="FWHM of the Gaussian regularization function (in arcseconds)",
+        default=DEFAULT_FWHM_REG,
+    )
+
+
+class NgmixWmomConfig(Config):
+    fwhm = Field[float](
+        doc="FWHM of the Gaussian weight function (in arcseconds)",
+        default=DEFAULT_WEIGHT_FWHMS['wmom'],
+    )
+    fwhm_smooth = Field[float](
+        doc="FWHM of the Gaussian smoothing function (in arcseconds)",
+        default=DEFAULT_FWHM_SMOOTH,
+    )
+    fwhm_reg = Field[float](
+        doc="FWHM of the Gaussian regularization function (in arcseconds)",
+        default=DEFAULT_FWHM_REG,
+    )
+
+
+class NgmixKSigmaMomConfig(Config):
+    fwhm = Field[float](
+        doc="FWHM of the Gaussian weight function (in arcseconds)",
+        default=DEFAULT_WEIGHT_FWHMS['ksigma'],
+    )
+    fwhm_smooth = Field[float](
+        doc="FWHM of the Gaussian smoothing function (in arcseconds)",
+        default=DEFAULT_FWHM_SMOOTH,
+    )
+    fwhm_reg = Field[float](
+        doc="FWHM of the Gaussian regularization function (in arcseconds)",
+        default=DEFAULT_FWHM_REG,
+    )
 
 
 class WeightConfig(Config):
@@ -225,6 +326,65 @@ class MetadetectConfig(Config):
             )
 
 
+class MetadetectMultiFitConfig(Config):
+    subtract_sky = Field[bool](
+        doc="Whether to subtract the sky before running metadetect",
+        default=DEFAULT_SUBTRACT_SKY,
+    )
+
+    meas_types = ListField[str](
+        doc="Measurement algorithms, must be one of ['wmom', 'ksigma', 'pgauss', 'am', 'gauss']",
+        default=["gauss", "pgauss", "wmom"],
+    )
+
+    wmom = ConfigField[NgmixWmomConfig](
+        doc="Weighted moments fitting configuration",
+    )
+
+    ksigma = ConfigField[NgmixKSigmaMomConfig](
+        doc="Fourier moments fitting configuration",
+    )
+
+    pgauss = ConfigField[NgmixPGaussConfig](
+        doc="Pre-seeing moments fitting configuration",
+    )
+
+    am = ConfigField[NgmixAdmomConfig](
+        doc="Adaptive moments fitting configuration",
+    )
+
+    gauss = ConfigField[NgmixGaussConfig](
+        doc="Gaussian fit fitting configuration",
+    )
+
+    psf = ConfigField[PsfConfig](
+        doc="Config for fitting the original PSFs",
+    )
+
+    detect = ConfigurableField(
+        doc="Detection config",
+        target=SourceDetectionTask,
+    )
+    metacal = ConfigField[MetacalConfig](
+        doc="Config for metacal",
+    )
+    step_size = Field[float](
+        doc="Shear step size",
+        default=0.01,
+    )
+
+    def validate(self):
+        super().validate()
+
+        for meas_type in self.meas_types:
+            if meas_type not in ["wmom", "ksigma", "pgauss", "am", "gauss"]:
+                raise FieldValidationError(
+                    self.__class__.meas_types,
+                    self,
+                    "meas_types must be in ['wmom', 'ksigma', 'pgauss', 'am', 'gauss']",
+                )
+
+
 class MetadetectTask(Task):
     ConfigClass = MetadetectConfig
     _DefaultName = "metadetect"
@@ -293,6 +453,76 @@ class MetadetectTask(Task):
         return result
 
 
+class MetadetectMultiFitTask(Task):
+
+    ConfigClass = MetadetectMultiFitConfig
+    _DefaultName = "metadetect"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.makeSubtask("detect")
+
+    def run(
+        self,
+        mbexp,
+        noise_mbexp,
+        rng,
+        mfrac_mbexp=None,
+        ormasks=None,
+        show=False,
+    ):
+
+        # This is to support methods that are not yet refactored.
+        config = self.config.toDict()
+        config['detect']['thresh'] = self.detect.config.thresholdValue
+
+        ormask = combine_ormasks(mbexp, ormasks)
+        mfrac, wgts = get_mfrac_mbexp(mbexp=mbexp, mfrac_mbexp=mfrac_mbexp)
+
+        if self.config.subtract_sky:
+            subtract_sky_mbexp(mbexp=mbexp, thresh=self.config.detect.thresholdValue)
+
+        psf_stats = fit_original_psfs_mbexp(
+            mbexp=mbexp,
+            wgts=wgts,
+            rng=rng,
+        )
+
+        fitters = get_fitters(config, rng=rng)
+
+        metacal_types = config['metacal'].get('types', None)
+
+        mdict, noise_mdict = get_metacal_mbexps_fixnoise(
+            mbexp=mbexp, noise_mbexp=noise_mbexp, types=metacal_types, step=self.config.step_size,
+        )
+
+        result = {}
+        for shear_str, mcal_mbexp in mdict.items():
+
+            res_dict = detect_deblend_and_measure_multi(
+                mbexp=mcal_mbexp,
+                fitters=fitters,
+                config=config,
+                rng=rng,
+                show=show,
+            )
+
+            # use the first fitter to get the shared stuff
+            res = res_dict[list(res_dict.keys())[0]]
+
+            if res is not None:
+                band = mcal_mbexp.bands[0]
+                exp = mcal_mbexp[band]
+
+                add_mfrac(config=config, mfrac=mfrac, res=res, exp=exp)
+                add_ormask(ormask, res)
+                add_original_psf(psf_stats, res)
+
+            result[shear_str] = res_dict
+
+        return result
+
+
 def detect_deblend_and_measure(
     mbexp,
     fitter,
@@ -349,6 +579,64 @@ def detect_deblend_and_measure(
     )
 
     return results
+
+
+def detect_deblend_and_measure_multi(
+    mbexp,
+    fitters,
+    config,
+    rng,
+    show=False,
+):
+    """
+    run detection, deblending and measurements.
+
+    Note deblending is always run in a hierarchical detection process, but the
+    deblending is only used for getting centers, and because there is currently
+    no other way to split footprints
+
+    Parameters
+    ----------
+    mbexp: lsst.afw.image.MultibandExposure
+        The metacal'ed exposures to process
+    fitters: dict[str, fitter] e.g. ngmix.gaussmom.GaussMom or ngmix.ksigmamom.KSigmaMom
+        For calculating moments
+    config: dict, optional
+        Configuration for the fitter, metacal, psf, detect, Entries
+        in this dict override defaults; see lsst_configs.py
+    thresh: float
+        The detection threshold in units of the sky noise
+    stamp_size: int
+        Size for postage stamps.
+    show: bool, optional
+        If set to True, show images during processing
+    """
+
+    LOG.info('measuring with blended stamps')
+
+    sources, detexp = measure.detect_and_deblend(
+        mbexp=mbexp,
+        rng=rng,
+        thresh=config['detect']['thresh'],
+        show=show,
+    )
+
+    results_dict = {}
+    for fitter_kind, fitter in fitters.items():
+
+        fwhm_reg = config[fitter_kind].get('fwhm_reg', 0)
+        fitter_results = measure.measure(
+            mbexp=mbexp,
+            detexp=detexp,
+            sources=sources,
+            fitter=fitter,
+            stamp_size=DEFAULT_STAMP_SIZES[fitter_kind],
+            fwhm_reg=fwhm_reg,
+            rng=rng,
+        )
+        results_dict[fitter_kind] = fitter_results
+
+    return results_dict
 
 
 def add_mfrac(config, mfrac, res, exp):
@@ -494,29 +782,49 @@ def add_original_psf(psf_stats, res):
     res['psfrec_T'][:] = psf_stats['T']
 
 
-def get_fitter(config, rng=None):
+def get_fitter(config, rng=None, meas_type=None):
     """
     get the fitter based on the 'fitter' input
     """
 
-    meas_type = config['meas_type']
+    if meas_type is None:
+        meas_type = config['meas_type']
+        weight_key = 'weight'
+    else:
+        weight_key = meas_type
 
     if meas_type == 'am':
         fitter_obj = ngmix.admom.AdmomFitter(rng=rng)
         guesser = ngmix.guessers.GMixPSFGuesser(
-            rng=rng, ngauss=1, guess_from_moms=True,
+            rng=rng,
+            ngauss=config[weight_key].get('ngauss', 1),
+            guess_from_moms=config[weight_key].get('guess_from_moms', 1),
         )
         fitter = ngmix.runners.Runner(
             fitter=fitter_obj, guesser=guesser,
-            ntry=2,
+            ntry=config[weight_key].get('ntry', 2),
         )
         # TODO is there a better way?
         fitter.kind = 'am'
 
     elif meas_type == 'gauss':
+        # original method was to just pass the string 'gauss'
         fitter = 'gauss'
+        fitter_obj = ngmix.admom.AdmomFitter(rng=rng)
+        guesser = ngmix.guessers.GMixPSFGuesser(
+            rng=rng,
+            ngauss=config[weight_key].get('ngauss', 1),
+            guess_from_moms=config[weight_key].get('guess_from_moms', 1),
+        )
+        fitter = ngmix.runners.Runner(
+            fitter=fitter_obj, guesser=guesser,
+            ntry=config[weight_key].get('ntry', 2),
+        )
+        # TODO is there a better way?
+        fitter.kind = 'gauss'
+
     else:
-        fwhm = config['weight']['fwhm']
+        fwhm = config[weight_key]['fwhm']
 
         if meas_type == 'wmom':
             fitter = ngmix.gaussmom.GaussMom(fwhm=fwhm)
@@ -524,8 +832,8 @@ def get_fitter(config, rng=None):
             # for backwards compatibility with older ngmix that did not
             # support the fwhm_smooth keyword.
             sm_kwargs = {}
-            if config['weight']['fwhm_smooth'] > 0:
-                sm_kwargs["fwhm_smooth"] = config['weight']['fwhm_smooth']
+            if config[weight_key]['fwhm_smooth'] > 0:
+                sm_kwargs["fwhm_smooth"] = config[weight_key]["fwhm_smooth"]
 
             if meas_type == 'ksigma':
                 fitter = ngmix.ksigmamom.KSigmaMom(
@@ -541,6 +849,18 @@ def get_fitter(config, rng=None):
                 raise ValueError("bad meas_type: '%s'" % meas_type)
 
     return fitter
+
+
+def get_fitters(config, rng):
+    """
+    Get the set of fitter to uses for measurement
+
+    This returns a dict[str, obj], keyed by the fitter type
+    """
+    fitter_dict = {}
+    for meas_type in config['meas_types']:
+        fitter_dict[meas_type] = get_fitter(config, rng=rng, meas_type=meas_type)
+    return fitter_dict
 
 
 def combine_ormasks(mbexp, ormasks):
