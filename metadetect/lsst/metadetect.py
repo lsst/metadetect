@@ -100,6 +100,12 @@ def run_metadetect(
 
 
 class NgmixAdmomConfig(Config):
+    """Configuration for adaptive moments fitting
+
+    These are used in the multi-fitting mode when 
+    "am" is one of the fitting methods invoked.
+    """
+
     ntry = Field[int](
         doc="Number of tries for fitting original PSFs",
         default=4,
@@ -115,6 +121,12 @@ class NgmixAdmomConfig(Config):
 
 
 class NgmixGaussConfig(Config):
+    """Configuration for Gaussian fitting
+
+    These are used in the multi-fitting mode when 
+    "gauss" is one of the fitting methods invoked.
+    """
+
     fwhm = Field[float](
         doc="FWHM of the Gaussian weight function (in arcseconds)",
         default=DEFAULT_WEIGHT_FWHMS['gauss'],
@@ -129,22 +141,13 @@ class NgmixGaussConfig(Config):
     )
 
 
-class NgmixAdmomConfig(Config):
-    ntry = Field[int](
-        doc="Number of tries for fitting original PSFs",
-        default=4,
-    )
-    ngauss = Field[int](
-        doc="Number of Gaussians to fit",
-        default=1,
-    )
-    guess_from_moms = Field[bool](
-        doc="Estimate Gaussain parameters from moments",
-        default=True,
-    )
-
-
 class NgmixPGaussConfig(Config):
+    """Configuration for pre-seeing Gaussian fitting
+
+    These are used in the multi-fitting mode when 
+    "pgauss" is one of the fitting methods invoked.
+    """
+
     fwhm = Field[float](
         doc="FWHM of the Gaussian weight function (in arcseconds)",
         default=DEFAULT_WEIGHT_FWHMS['pgauss'],
@@ -160,6 +163,12 @@ class NgmixPGaussConfig(Config):
 
 
 class NgmixWmomConfig(Config):
+    """Configuration for weighted moments fitting
+
+    These are used in the multi-fitting mode when 
+    "wmom" is one of the fitting methods invoked.
+    """
+
     fwhm = Field[float](
         doc="FWHM of the Gaussian weight function (in arcseconds)",
         default=DEFAULT_WEIGHT_FWHMS['wmom'],
@@ -175,6 +184,12 @@ class NgmixWmomConfig(Config):
 
 
 class NgmixKSigmaMomConfig(Config):
+    """Configuration for K-sigma fitting
+
+    These are used in the multi-fitting mode when 
+    "ksigma" is one of the fitting methods invoked.
+    """
+
     fwhm = Field[float](
         doc="FWHM of the Gaussian weight function (in arcseconds)",
         default=DEFAULT_WEIGHT_FWHMS['ksigma'],
@@ -190,6 +205,11 @@ class NgmixKSigmaMomConfig(Config):
 
 
 class WeightConfig(Config):
+    """Configuration for weights in fitting
+    
+    These are used in the single fitter mode
+    """
+    
     fwhm = Field[float](
         doc="FWHM of the Gaussian weight function (in arcseconds)",
         default=None,
