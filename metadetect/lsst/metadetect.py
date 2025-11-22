@@ -110,10 +110,6 @@ class NgmixAdmomConfig(Config):
         doc="Number of tries for fitting original PSFs",
         default=4,
     )
-    ngauss = Field[int](
-        doc="Number of Gaussians to fit",
-        default=1,
-    )
     guess_from_moms = Field[bool](
         doc="Estimate Gaussain parameters from moments",
         default=True,
