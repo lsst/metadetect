@@ -13,3 +13,5 @@ ALLOWED_BOX_SIZES = [
     384,512,768,1024,1536,  # noqa
     2048,3072,4096,6144  # noqa
 ]
+
+_MEAS_TYPES = ["wmom", "ksigma", "pgauss", "am", "gauss",]

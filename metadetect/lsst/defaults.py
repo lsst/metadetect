@@ -1,7 +1,8 @@
 from copy import deepcopy
 
-# List of all the possible measurements.
-_MEAS_TYPES = {"wmom", "ksigma", "pgauss", "am", "gauss",}
+# Import all the possible measurements, as to allow for a subset within
+# LSST Science Pipelines config framework.
+from ..defaults import _MEAS_TYPES  # noqa
 
 DEFAULT_WEIGHT_FWHMS = {
     'wmom': 1.2,

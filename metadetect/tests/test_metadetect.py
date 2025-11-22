@@ -17,6 +17,7 @@ from metadetect import detect
 from metadetect import metadetect
 from metadetect import fitting
 from metadetect import procflags
+from metadetect.defaults import _MEAS_TYPES
 from .sim import Sim
 
 
@@ -252,7 +253,7 @@ def test_metadetect_coadd_faster(model):
         assert np.allclose(coadd_time, no_coadd_time, atol=0, rtol=0.3)
 
 
-@pytest.mark.parametrize("model", ["wmom", "pgauss", "ksigma", "am", "gauss"])
+@pytest.mark.parametrize("model", _MEAS_TYPES)
 def test_metadetect_smoke(model):
     """
     test full metadetection
@@ -284,7 +285,7 @@ def test_metadetect_smoke(model):
     print("time per:", total_time/ntrial)
 
 
-@pytest.mark.parametrize("model", ["wmom", "pgauss", "ksigma", "am", "gauss"])
+@pytest.mark.parametrize("model", _MEAS_TYPES)
 def test_metadetect_uberseg(model):
     """
     test full metadetection
@@ -319,7 +320,7 @@ def test_metadetect_uberseg(model):
     print("time per:", total_time/ntrial)
 
 
-@pytest.mark.parametrize("model", ["wmom", "pgauss", "ksigma", "am", "gauss"])
+@pytest.mark.parametrize("model", _MEAS_TYPES)
 def test_metadetect_mfrac(model):
     """
     test full metadetection w/ mfrac
@@ -363,7 +364,7 @@ def test_metadetect_mfrac(model):
     print("time per:", total_time/ntrial)
 
 
-@pytest.mark.parametrize("model", ["wmom", "pgauss", "ksigma", "am", "gauss"])
+@pytest.mark.parametrize("model", _MEAS_TYPES)
 def test_metadetect_mfrac_all(model):
     """
     test full metadetection w/ mfrac all 1
@@ -387,7 +388,7 @@ def test_metadetect_mfrac_all(model):
         assert res is None
 
 
-@pytest.mark.parametrize("model", ["wmom", "pgauss", "ksigma", "am", "gauss"])
+@pytest.mark.parametrize("model", _MEAS_TYPES)
 def test_metadetect_zero_weight_all(model):
     """
     test full metadetection w/ all zero weight
@@ -412,7 +413,7 @@ def test_metadetect_zero_weight_all(model):
         assert res is None
 
 
-@pytest.mark.parametrize("model", ["wmom", "pgauss", "ksigma", "am", "gauss"])
+@pytest.mark.parametrize("model", _MEAS_TYPES)
 def test_metadetect_zero_weight_some(model):
     """
     test full metadetection w/ some zero weight
@@ -437,7 +438,7 @@ def test_metadetect_zero_weight_some(model):
         assert res is None
 
 
-@pytest.mark.parametrize("model", ["wmom", "pgauss", "ksigma", "am", "gauss"])
+@pytest.mark.parametrize("model", _MEAS_TYPES)
 def test_metadetect_nodet_flags_all(model):
     """
     test full metadetection w/ all bmask all nodet_flags
@@ -463,7 +464,7 @@ def test_metadetect_nodet_flags_all(model):
         assert res is None
 
 
-@pytest.mark.parametrize("model", ["wmom", "pgauss", "ksigma", "am", "gauss"])
+@pytest.mark.parametrize("model", _MEAS_TYPES)
 def test_metadetect_nodet_flags_some(model):
     """
     test full metadetection w/ some bmask nodet_flags
