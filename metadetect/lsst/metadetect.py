@@ -24,6 +24,7 @@ from .defaults import (
     DEFAULT_STAMP_SIZES,
     DEFAULT_SUBTRACT_SKY,
     DEFAULT_WEIGHT_FWHMS,
+    _MEAS_TYPES,
 )
 from . import measure
 from .metacal_exposures import get_metacal_mbexps_fixnoise
@@ -393,11 +394,11 @@ class MetadetectMultiFitConfig(Config):
         super().validate()
 
         for meas_type in self.meas_types:
-            if meas_type not in ["wmom", "ksigma", "pgauss", "am", "gauss"]:
+            if meas_type not in _MEAS_TYPES:
                 raise FieldValidationError(
                     self.__class__.meas_types,
                     self,
-                    "meas_types must be in ['wmom', 'ksigma', 'pgauss', 'am', 'gauss']",
+                    f"meas_types must be in {_MEAS_TYPES}",
                 )
 
 

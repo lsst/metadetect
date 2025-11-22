@@ -1,5 +1,7 @@
 from copy import deepcopy
 
+# List of all the possible measurements.
+_MEAS_TYPES = {"wmom", "ksigma", "pgauss", "am", "gauss",}
 
 DEFAULT_WEIGHT_FWHMS = {
     'wmom': 1.2,
