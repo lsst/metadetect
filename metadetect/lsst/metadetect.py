@@ -34,7 +34,8 @@ LOG = logging.getLogger('lsst_metadetect')
 
 
 def run_metadetect(
-    mbexp, noise_mbexp, rng, mfrac_mbexp=None, ormasks=None, config=None, show=False, many_fitters=False,
+    mbexp, noise_mbexp, rng, mfrac_mbexp=None, ormasks=None, config=None, show=False,
+    many_fitters=False,
 ):
     """
     Run metadetection on the input MultiBandObsList
@@ -350,10 +351,9 @@ class MetadetectMultiFitConfig(Config):
     )
 
     meas_types = ListField[str](
-        doc="Measurement algorithms, must be one of ['wmom', 'ksigma', 'pgauss', 'am', 'gauss']",
+        doc=f"Measurement algorithms, must be a subset of {_MEAS_TYPES}",
         default=["gauss", "pgauss", "wmom"],
     )
-
     wmom = ConfigField[NgmixWmomConfig](
         doc="Weighted moments fitting configuration",
     )
@@ -443,7 +443,8 @@ class MetadetectTask(Task):
         metacal_types = config['metacal'].get('types', None)
 
         mdict, _ = get_metacal_mbexps_fixnoise(
-            mbexp=mbexp, noise_mbexp=noise_mbexp, types=metacal_types, step=self.config.step_size,
+            mbexp=mbexp, noise_mbexp=noise_mbexp, types=metacal_types,
+            step=self.config.step_size,
         )
 
         result = {}
@@ -510,7 +511,8 @@ class MetadetectMultiFitTask(Task):
         metacal_types = config['metacal'].get('types', None)
 
         mdict, noise_mdict = get_metacal_mbexps_fixnoise(
-            mbexp=mbexp, noise_mbexp=noise_mbexp, types=metacal_types, step=self.config.step_size,
+            mbexp=mbexp,noise_mbexp=noise_mbexp, types=metacal_types,
+            step=self.config.step_size,
         )
 
         result = {}

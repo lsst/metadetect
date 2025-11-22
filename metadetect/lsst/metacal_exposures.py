@@ -36,7 +36,8 @@ def get_metacal_mbexps_fixnoise(mbexp, noise_mbexp, types=None, step=STEP):
     """
 
     mdict = get_metacal_mbexps(mbexp=mbexp, types=types, step=step)
-    noise_mdict = get_metacal_mbexps(mbexp=noise_mbexp, types=types, rot=True, step=step)
+    noise_mdict = get_metacal_mbexps(mbexp=noise_mbexp, types=types, rot=True,
+        step=step)
     for shear_type in mdict:
         for exp, nexp in zip(mdict[shear_type], noise_mdict[shear_type]):
             exp.image.array[:, :] += nexp.image.array[:, :]
