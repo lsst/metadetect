@@ -102,7 +102,7 @@ def run_metadetect(
 class NgmixAdmomConfig(Config):
     """Configuration for adaptive moments fitting
 
-    These are used in the multi-fitting mode when 
+    These are used in the multi-fitting mode when
     "am" is one of the fitting methods invoked.
     """
 
@@ -119,7 +119,7 @@ class NgmixAdmomConfig(Config):
 class NgmixGaussConfig(Config):
     """Configuration for Gaussian fitting
 
-    These are used in the multi-fitting mode when 
+    These are used in the multi-fitting mode when
     "gauss" is one of the fitting methods invoked.
     """
 
@@ -140,7 +140,7 @@ class NgmixGaussConfig(Config):
 class NgmixPGaussConfig(Config):
     """Configuration for pre-seeing Gaussian fitting
 
-    These are used in the multi-fitting mode when 
+    These are used in the multi-fitting mode when
     "pgauss" is one of the fitting methods invoked.
     """
 
@@ -161,7 +161,7 @@ class NgmixPGaussConfig(Config):
 class NgmixWmomConfig(Config):
     """Configuration for weighted moments fitting
 
-    These are used in the multi-fitting mode when 
+    These are used in the multi-fitting mode when
     "wmom" is one of the fitting methods invoked.
     """
 
@@ -182,7 +182,7 @@ class NgmixWmomConfig(Config):
 class NgmixKSigmaMomConfig(Config):
     """Configuration for K-sigma fitting
 
-    These are used in the multi-fitting mode when 
+    These are used in the multi-fitting mode when
     "ksigma" is one of the fitting methods invoked.
     """
 
@@ -202,10 +202,10 @@ class NgmixKSigmaMomConfig(Config):
 
 class WeightConfig(Config):
     """Configuration for weights in fitting
-    
+
     These are used in the single fitter mode
     """
-    
+
     fwhm = Field[float](
         doc="FWHM of the Gaussian weight function (in arcseconds)",
         default=None,
@@ -441,7 +441,7 @@ class MetadetectTask(Task):
 
         metacal_types = config['metacal'].get('types', None)
 
-        mdict, noise_mdict = get_metacal_mbexps_fixnoise(
+        mdict, _ = get_metacal_mbexps_fixnoise(
             mbexp=mbexp, noise_mbexp=noise_mbexp, types=metacal_types, step=self.config.step_size,
         )
 
