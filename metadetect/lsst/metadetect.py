@@ -91,7 +91,7 @@ def run_metadetect(
     config.validate()
 
     if many_fitters:
-        task = MetadetectMutliFitTask(config=config)
+        task = MetadetectMultiFitTask(config=config)
     else:
         task = MetadetectTask(config=config)
 
