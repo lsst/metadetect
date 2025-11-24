@@ -22,27 +22,11 @@ jobs:
           access_token: ${{ github.token }}
 
       - name: free disk space
-        run: |
-          sudo mkdir -p /opt/empty_dir || true
-          for d in \
-          /opt/ghc \
-          /opt/hostedtoolcache \
-          /usr/lib/jvm \
-          /usr/local/.ghcup \
-          /usr/local/lib/android \
-          /usr/local/share/powershell \
-          /usr/share/dotnet \
-          /usr/share/swift \
-          ; do
-            sudo rsync --stats -a --delete /opt/empty_dir/ $d || true
-          done
-          BROWSERS="firefox google-chrome-stable microsoft-edge-stable"
-          BROWSERS_TO_REMOVE=$(dpkg --get-selections $BROWSERS 2>/dev/null | awk '{print $1}')
-          sudo apt-get remove --purge -y $BROWSERS_TO_REMOVE
-          sudo apt-get autoremove -y >& /dev/null
-          sudo apt-get autoclean -y >& /dev/null
-          sudo docker image prune --all --force
-          df -h
+        uses: endersonmenezes/free-disk-space@v3
+        with:
+          remove_android: true
+          rm_cmd: "rmz"        # NEW: Faster deletion
+          rmz_version: "3.1.1" # NEW: Specify rmz version
 
       - uses: actions/checkout@v2
 
