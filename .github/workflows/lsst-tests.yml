@@ -48,10 +48,11 @@ jobs:
           conda install lsstdesc-wl-shear-sims
 
           pip install --no-deps git+https://github.com/LSSTDESC/descwl_coadd.git
-          rm -rf $(python -c "import metadetect; print(metadetect.__path__[0])")
+          python -c "import metadetect; print(metadetect.__path__)"
           pwd
           ls -halt
           python -m pip install -e .
+          python -c "import metadetect; print(metadetect.__path__)"
 
       - name: test ngmix w/ conda latest
         shell: bash -l {0}
