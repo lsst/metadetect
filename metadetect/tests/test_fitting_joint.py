@@ -3,7 +3,7 @@ import ngmix
 
 import pytest
 
-from .sim import make_mbobs_sim
+from sim import make_mbobs_sim
 from metadetect.fitting import (
     fit_mbobs_admom,
     fit_mbobs_list_joint,

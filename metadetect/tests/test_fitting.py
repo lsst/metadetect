@@ -7,7 +7,7 @@ import pytest
 from ngmix.gaussmom import GaussMom
 from ngmix.moments import fwhm_to_T
 
-from .sim import make_mbobs_sim
+from sim import make_mbobs_sim
 from metadetect.fitting import (
     fit_mbobs_wavg,
     _combine_fit_results_wavg,
