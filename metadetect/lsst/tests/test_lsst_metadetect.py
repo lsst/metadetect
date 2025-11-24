@@ -90,7 +90,8 @@ def do_coadding(rng, sim_data, nowarp):
 @pytest.mark.parametrize('subtract_sky', [None, False, True])
 @pytest.mark.parametrize("metacal_types_option", [None, "1p1m", "full"])
 @pytest.mark.parametrize("step_size", [None, 0.01, 0.02])
-def test_lsst_metadetect_smoke(meas_type, subtract_sky, metacal_types_option, step_size):
+def test_lsst_metadetect_smoke(meas_type, subtract_sky, metacal_types_option,
+                               step_size):
     rng = np.random.RandomState(seed=116)
 
     bands = ['r', 'i']
