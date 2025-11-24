@@ -48,11 +48,11 @@ jobs:
           conda install lsstdesc-wl-shear-sims
 
           pip install --no-deps git+https://github.com/LSSTDESC/descwl_coadd.git
-          rm -rf $(python -c "import os; print([path for path in os.sys.path if 'metadetect' in path][0])")
-          python -m pip install -e .
 
       - name: test ngmix w/ conda latest
         shell: bash -l {0}
         run: |
+          rm -rf $(python -c "import os; print([path for path in os.sys.path if 'metadetect' in path][0])")
+          python -m pip install -e .
           # we run metadetect/tests and metadetect/lsst/tests
           pytest -v -n 4 --cov=metadetect --cov-report term-missing metadetect
