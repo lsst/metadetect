@@ -17,7 +17,7 @@ from metadetect import detect
 from metadetect import metadetect
 from metadetect import fitting
 from metadetect import procflags
-from .sim import Sim
+from sim import Sim
 
 
 TEST_METADETECT_CONFIG = {
