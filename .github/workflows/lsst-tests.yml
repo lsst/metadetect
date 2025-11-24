@@ -35,10 +35,8 @@ jobs:
         shell: bash -l {0}
         run: |
           conda config --set always_yes yes
-          conda install --quiet --yes --file requirements.txt
-          conda install --quiet --yes --file dev-requirements.txt
-          conda install -q -y stackvana=0 lsstdesc-weaklensingdeblending
-          conda install lsstdesc-wl-shear-sims
+          conda install -q -y stackvana=0
+          conda install lsstdesc-weaklensingdeblending lsstdesc-wl-shear-sims
 
           pip install --no-deps git+https://github.com/LSSTDESC/descwl_coadd.git
 
@@ -48,4 +46,4 @@ jobs:
         shell: bash -l {0}
         run: |
           # we run metadetect/tests and metadetect/lsst/tests
-          pytest -v -n 4 --cov=metadetect --cov-report term-missing metadetect
+          pytest -v -n 4 --cov=metadetect --cov-report term-missing metadetect/lsst/tests
