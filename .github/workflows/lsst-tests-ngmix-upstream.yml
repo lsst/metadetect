@@ -62,5 +62,6 @@ jobs:
       - name: test
         shell: bash -l {0}
         run: |
-          # we run metadetect/tests and metadetect/lsst/tests
+          # we need to unsetup the metadetect that comes with the stack
+          unsetup -j metadetect
           pytest -v -n 4 metadetect
