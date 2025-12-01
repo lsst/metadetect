@@ -57,9 +57,11 @@ jobs:
 
           python -m pip install -e .
 
-      - name: test ngmix w/ conda latest
+      - name: metadetect test suite, including lsst
         shell: bash -l {0}
         run: |
+          # we need to unsetup the metadetect that comes with the stack
+          unsetup -j metadetect
           # we run metadetect/tests and metadetect/lsst/tests
           pytest -v -n 4 --cov=metadetect --cov-report=xml --cov-report=term-missing --cov-branch metadetect
 
