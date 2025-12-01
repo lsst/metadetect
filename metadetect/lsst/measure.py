@@ -6,7 +6,9 @@ import ngmix
 
 import lsst.afw.table as afw_table
 from lsst.meas.algorithms import SourceDetectionTask
-from lsst.meas.algorithms import SourceDetectionConfig as OriginalSourceDetectionConfig
+from lsst.meas.algorithms import (
+    SourceDetectionConfig as OriginalSourceDetectionConfig,
+)
 from lsst.meas.deblender import SourceDeblendTask, SourceDeblendConfig
 from lsst.meas.base import (
     SingleFrameMeasurementConfig,
@@ -22,7 +24,10 @@ from lsst.pex.exceptions import (
 )
 
 from ..procflags import (
-    EDGE_HIT, ZERO_WEIGHTS, CENTROID_FAILURE, NO_ATTEMPT,
+    EDGE_HIT,
+    ZERO_WEIGHTS,
+    CENTROID_FAILURE,
+    NO_ATTEMPT,
 )
 from ..fitting import (
     fit_mbobs_gauss,
@@ -60,13 +65,11 @@ class DetectAndDeblendConfig(Config):
     )
 
     detect = ConfigurableField[SourceDetectionConfig](
-        doc="Detection config",
-        target=SourceDetectionTask
+        doc="Detection config", target=SourceDetectionTask
     )
 
     deblend = ConfigurableField[SourceDeblendConfig](
-        doc="Deblend config",
-        target=SourceDeblendTask
+        doc="Deblend config", target=SourceDeblendTask
     )
 
     seed = Field[int](
@@ -97,7 +100,8 @@ class DetectAndDeblendConfig(Config):
         self.meas.plugins['base_SdssCentroid'].binmax = 1
 
         # defaults for detection config
-        # DM does not have config default stability.  Set all of them explicitly
+        # DM does not have config default stability.  Set all of them
+        # explicitly
         self.detect.minPixels = 1
         self.detect.isotropicGrow = True
         self.detect.combinedGrow = True
@@ -130,10 +134,10 @@ class DetectAndDeblendConfig(Config):
         self.detect.statsMask = util.get_stats_mask()
 
         # deblend config
-        # these tasks must use the same schema and all be constructed before any
-        # other tasks using the same schema are run because schema is modified in
-        # place by tasks, and the constructor does a check that fails if we do this
-        # afterward
+        # these tasks must use the same schema and all be constructed before
+        # any other tasks using the same schema are run because schema is
+        # modified in place by tasks, and the constructor does a check that
+        # fails if we do this afterward
         self.deblend.maxFootprintArea = 0
 
 
@@ -170,11 +174,12 @@ class DetectAndDeblendTask(Task):
             self.deblend.run(detexp, sources)
 
             with ContextNoiseReplacer(
-                detexp, sources, self.rng, config=self.meas.config.noiseReplacer
+                detexp,
+                sources,
+                self.rng,
+                config=self.meas.config.noiseReplacer,
             ) as replacer:
-
                 for source in sources:
-
                     if source.get('deblend_nChild') != 0:
                         continue
 
@@ -246,14 +251,12 @@ def measure(
     mbexp,
     detexp,
     sources,
-    fitter,
-    stamp_size,
-    fwhm_reg=0,
-    rng=None,
+    config,
+    rng,
 ):
     """
     run measurements on the input exposure, given the input measurement task,
-    list of sources, and fitter.
+    list of sources, and config.
 
     Parameters
     ----------
@@ -263,15 +266,11 @@ def measure(
         The detection exposure, used for bmask info
     sources: list of sources
         From a detection task
-    fitter: e.g. ngmix.gaussmom.GaussMom or ngmix.ksigmamom.PGaussMom
-        For calculating moments. Can also be string 'gauss'
-    stamp_size: int
-        Size for postage stamps
-    fwhm_reg: float, optional
-        Optional regularization for calculating shapes.  The fwhm is converted
-        to T and T+Treg is used in the denominator
+    config: dict, optional
+        Configuration for the fitter, metacal, psf, detect, Entries
+        in this dict override defaults; see lsst_configs.py
     rng: np.random.RandomState
-        Random number generator, only used when fitter == 'gauss'
+        Random number generator
 
     Returns
     -------
@@ -281,10 +280,7 @@ def measure(
     if len(sources) == 0:
         return None
 
-    if fitter == 'gauss':
-        fitter_kind = fitter
-    else:
-        fitter_kind = fitter.kind
+    pgauss_fitter = get_pgauss_fitter(config)
 
     nband = len(mbexp.bands)
     exp_bbox = mbexp.getBBox()
@@ -295,7 +291,6 @@ def measure(
     bmasks = get_bmasks(sources=sources, exposure=detexp)
 
     for i, source in enumerate(sources):
-
         if source.get('deblend_nChild') != 0:
             continue
 
@@ -304,32 +299,36 @@ def measure(
         flags = 0
         try:
             mbobs = _get_stamp_mbobs(
-                mbexp=mbexp, source=source, stamp_size=stamp_size,
+                mbexp=mbexp,
+                source=source,
+                stamp_size=config['stamp_size'],
             )
 
             # TODO do something with bmask_flags?
-            if fitter == 'gauss':
-                psf_fitter = ngmix.admom.AdmomFitter(rng=rng)
-                psf_guesser = ngmix.guessers.GMixPSFGuesser(
-                    rng=rng, ngauss=1, guess_from_moms=True,
-                )
-                psf_runner = ngmix.runners.PSFRunner(
-                    fitter=psf_fitter, guesser=psf_guesser, ntry=4,
-                )
+            psf_fitter = ngmix.admom.AdmomFitter(rng=rng)
+            psf_guesser = ngmix.guessers.GMixPSFGuesser(
+                rng=rng,
+                ngauss=1,
+                guess_from_moms=True,
+            )
+            psf_runner = ngmix.runners.PSFRunner(
+                fitter=psf_fitter,
+                guesser=psf_guesser,
+                ntry=4,
+            )
 
-                this_res = fit_mbobs_gauss(
-                    mbobs=mbobs,
-                    bmask_flags=0,
-                    psf_runner=psf_runner,
-                    rng=rng,
-                )
-            else:
-                this_res = fit_mbobs_wavg(
-                    mbobs=mbobs,
-                    fitter=fitter,
-                    bmask_flags=0,
-                    fwhm_reg=fwhm_reg,
-                )
+            this_gauss_res = fit_mbobs_gauss(
+                mbobs=mbobs,
+                bmask_flags=0,
+                psf_runner=psf_runner,
+                rng=rng,
+            )
+
+            this_pgauss_res = fit_mbobs_wavg(
+                mbobs=mbobs,
+                fitter=pgauss_fitter,
+                bmask_flags=0,
+            )
         except LengthError as err:
             # This is raised when a bbox hits an edge
             LOG.debug('%s', err)
@@ -344,12 +343,25 @@ def measure(
             flags = CENTROID_FAILURE
 
         if flags != 0:
-            this_res = get_wavg_output_struct(nband=nband, model=fitter_kind)
-            this_res[fitter_kind + '_flags'] = flags
+            this_gauss_res = get_wavg_output_struct(
+                nband=nband,
+                model='gauss',
+            )
+            this_pgauss_res = get_wavg_output_struct(
+                nband=nband,
+                model='pgauss',
+            )
+            this_gauss_res['gauss_flags'] = flags
+
+        this_res = _get_combined_struct(this_gauss_res, this_pgauss_res)
 
         res = get_output(
-            wcs=wcs, source=source, res=this_res,
-            bmask=bmask, stamp_size=stamp_size, exp_bbox=exp_bbox,
+            wcs=wcs,
+            source=source,
+            res=this_res,
+            bmask=bmask,
+            stamp_size=config['stamp_size'],
+            exp_bbox=exp_bbox,
         )
 
         results.append(res)
@@ -360,6 +372,36 @@ def measure(
         results = None
 
     return results
+
+
+def get_pgauss_fitter(config):
+    return ngmix.prepsfmom.PGaussMom(
+        fwhm=config['weight']['fwhm'],
+        fwhm_smooth=config['weight']['fwhm_smooth'],
+    )
+
+
+def _get_combined_struct(gauss_res, pgauss_res):
+
+    skip = ['pgauss_g', 'pgauss_g_cov', 'pgauss_s2n', 'shear_bands']
+    keep_dt = []
+
+    for pdt in pgauss_res.dtype.descr:
+
+        n = pdt[0]
+
+        if 'psf' in n or n in skip:
+            continue
+
+        keep_dt.append(pdt)
+
+    out = eu.numpy_util.add_fields(gauss_res, keep_dt)
+
+    for n in pgauss_res.dtype.names:
+        if n in out.dtype.names:
+            out[n] = pgauss_res[n]
+
+    return out
 
 
 def get_bmasks(sources, exposure):
@@ -441,11 +483,11 @@ def extract_obs(exp, source):
     psf_im = extract_psf_image(exposure=exp, orig_cen=orig_cen)
 
     # fake the psf pixel noise
-    psf_err = psf_im.max()*0.0001
-    psf_wt = psf_im*0 + 1.0/psf_err**2
+    psf_err = psf_im.max() * 0.0001
+    psf_wt = psf_im * 0 + 1.0 / psf_err**2
 
     # use canonical center for the psf
-    psf_cen = (np.array(psf_im.shape)-1.0)/2.0
+    psf_cen = (np.array(psf_im.shape) - 1.0) / 2.0
     psf_jacob = jacob.copy()
     psf_jacob.set_cen(row=psf_cen[0], col=psf_cen[1])
 
@@ -504,7 +546,6 @@ def _get_stamp_mbobs(mbexp, source, stamp_size, clip=False):
 
     mbobs = ngmix.MultiBandObsList()
     for band in mbexp.bands:
-
         subexp = mbexp[band][bbox]
         obs = extract_obs(
             exp=subexp,
@@ -656,10 +697,9 @@ def _extract_weight(exp):
 
     if wuse[0].size > 0:
         medvar = np.median(var_image[wuse])
-        weight[:, :] = 1.0/medvar
+        weight[:, :] = 1.0 / medvar
     else:
-        print('    weight is all zero, found '
-              'none that passed cuts')
+        print('    weight is all zero, found none that passed cuts')
 
     return weight
 
@@ -696,7 +736,6 @@ def _extract_jacobian_at_source(exp, source):
 
 
 def get_output_dtype():
-
     dt = [
         ('stamp_size', 'i4'),
         ('row0', 'i4'),  # bbox row start
@@ -707,11 +746,9 @@ def get_output_dtype():
         ('col_diff', 'f4'),  # difference from peak location
         ('ra', 'f8'),
         ('dec', 'f8'),
-
         ('psfrec_flags', 'i4'),  # psfrec is the original psf
         ('psfrec_g', 'f8', 2),
         ('psfrec_T', 'f8'),
-
         # values from .mask of input exposures
         ('bmask', 'i4'),
         # values for ormask across all input exposures to coadd
