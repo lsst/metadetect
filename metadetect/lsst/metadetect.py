@@ -4,7 +4,6 @@ import ngmix
 from ngmix.gexceptions import BootPSFFailure
 from lsst.pex.config import (
     Config,
-    ChoiceField,
     ConfigField,
     ConfigurableField,
     Field,
