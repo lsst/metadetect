@@ -16,11 +16,8 @@ DEFAULT_THRESH = 5.0
 DEFAULT_SUBTRACT_SKY = False
 
 # Control of the metacal process
-# not currently used for new metacal_exposures code that always
-DEFAULT_METACAL_CONFIG = {
-    "use_noise_image": True,
-    "psf": "fitgauss",
-}
+# currently we don't have any defaults
+DEFAULT_METACAL_CONFIG = {}
 
 # detection config, this may expand
 DEFAULT_DETECT_CONFIG = {
