@@ -34,7 +34,7 @@ jobs:
           show-channel-urls: true
           miniforge-version: latest
 
-      - name: free disk space for stackvana
+      - name: free disk space
         uses: endersonmenezes/free-disk-space@v3
         with:
           remove_android: true
