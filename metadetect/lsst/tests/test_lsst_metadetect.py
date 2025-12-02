@@ -258,15 +258,13 @@ def test_lsst_zero_weights(show=False):
 
         if do_zero:
             for shear_type, tres in resdict.items():
-                assert np.any(
-                    tres['gauss_flags'] & procflags.ZERO_WEIGHTS != 0
+                w, = np.where(
+                    tres['stamp_flags'] & procflags.ZERO_WEIGHTS != 0
                 )
-                assert np.any(
-                    tres['pgauss_flags'] & procflags.ZERO_WEIGHTS != 0
-                )
-                assert np.any(
-                    tres['gauss_psf_flags'] & procflags.NO_ATTEMPT != 0
-                )
+                assert w.size > 0, 'expected some stamp_flags set'
+                assert np.all(tres['gauss_flags'][w] == procflags.NO_ATTEMPT)
+                assert np.all(tres['pgauss_flags'][w] == procflags.NO_ATTEMPT)
+
         else:
             for shear_type, tres in resdict.items():
                 # 5x5 grid

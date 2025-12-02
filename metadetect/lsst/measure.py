@@ -295,13 +295,35 @@ def measure(
 
         bmask = bmasks[i]
 
-        flags = 0
+        stamp_flags = 0
         try:
             mbobs = _get_stamp_mbobs(
                 mbexp=mbexp,
                 source=source,
                 stamp_size=config['stamp_size'],
             )
+        except LengthError as err:
+            # This is raised when a bbox hits an edge
+            LOG.debug('%s', err)
+            stamp_flags = EDGE_HIT
+        except AllZeroWeightError as err:
+            # failure creating some observation due to all weights being zero
+            # across the stamp
+            LOG.info('%s', err)
+            stamp_flags = ZERO_WEIGHTS
+
+        if stamp_flags != 0:
+
+            this_gauss_res = get_wavg_output_struct(
+                nband=nband,
+                model='gauss',
+            )
+            this_pgauss_res = get_wavg_output_struct(
+                nband=nband,
+                model='pgauss',
+            )
+
+        else:
 
             # TODO do something with bmask_flags?
             psf_fitter = ngmix.admom.AdmomFitter(rng=rng)
@@ -328,28 +350,9 @@ def measure(
                 fitter=pgauss_fitter,
                 bmask_flags=0,
             )
-        except LengthError as err:
-            # This is raised when a bbox hits an edge
-            LOG.debug('%s', err)
-            flags = EDGE_HIT
-        except AllZeroWeightError as err:
-            # failure creating some observation due to zero weights
-            LOG.info('%s', err)
-            flags = ZERO_WEIGHTS
-
-        if flags != 0:
-            this_gauss_res = get_wavg_output_struct(
-                nband=nband,
-                model='gauss',
-            )
-            this_pgauss_res = get_wavg_output_struct(
-                nband=nband,
-                model='pgauss',
-            )
-            this_gauss_res['gauss_flags'] |= flags
-            this_pgauss_res['pgauss_flags'] |= flags
 
         this_res = _get_combined_struct(this_gauss_res, this_pgauss_res)
+        this_res['stamp_flags'] = stamp_flags
 
         res = get_output(
             wcs=wcs,
@@ -377,7 +380,7 @@ def get_pgauss_fitter(config):
 def _get_combined_struct(gauss_res, pgauss_res):
 
     skip = ['pgauss_g', 'pgauss_g_cov', 'shear_bands']
-    keep_dt = []
+    keep_dt = [('stamp_flags', 'i4')]
 
     for pdt in pgauss_res.dtype.descr:
 
