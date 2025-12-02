@@ -108,17 +108,6 @@ class PGaussConfig(Config):
 
 
 class MetacalConfig(Config):
-    use_noise_image = Field[bool](
-        doc="Whether to use the noise image",
-        default=True,
-    )
-    psf = ChoiceField[str](
-        doc="PSF model",
-        default="fitgauss",
-        allowed={
-            "fitgauss": "Fit a Gaussian to the PSF",
-        },
-    )
     types = ListField[str](
         doc="List of artificial shears to apply.",
         default=[
