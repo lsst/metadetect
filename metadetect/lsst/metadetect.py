@@ -19,10 +19,9 @@ from .. import procflags
 from .skysub import subtract_sky_mbexp
 
 from .defaults import (
-    DEFAULT_FWHM_SMOOTH,
     DEFAULT_STAMP_SIZE,
     DEFAULT_SUBTRACT_SKY,
-    DEFAULT_WEIGHT_FWHM,
+    DEFAULT_PGAUSS_FWHM,
 )
 from . import measure
 from .metacal_exposures import get_metacal_mbexps_fixnoise
@@ -101,17 +100,10 @@ def run_metadetect(
     return result
 
 
-class WeightConfig(Config):
+class PGaussConfig(Config):
     fwhm = Field[float](
-        doc="FWHM of the Gaussian weight function for PGAuss (in arcseconds)",
-        default=DEFAULT_WEIGHT_FWHM,
-    )
-    fwhm_smooth = Field[float](
-        doc=(
-            "Smoothing of the Gaussian smoothing function for PGauss "
-            "(in arcseconds)"
-        ),
-        default=DEFAULT_FWHM_SMOOTH,
+        doc="FWHM of the Gaussian weight function for PGauss (in arcseconds)",
+        default=DEFAULT_PGAUSS_FWHM,
     )
 
 
@@ -153,7 +145,7 @@ class MetadetectConfig(Config):
         default=DEFAULT_SUBTRACT_SKY,
     )
 
-    weight = ConfigField[WeightConfig](
+    pgauss = ConfigField[PGaussConfig](
         doc="PGauss config",
     )
 
@@ -166,11 +158,10 @@ class MetadetectConfig(Config):
         doc="Metacal config",
     )
 
-    @property
-    def stamp_size(self):
-        # Caution: This provides a backdoor entry to change the behavior
-        # by changing the DEFAULT_STAMP_SIZES.
-        return DEFAULT_STAMP_SIZE
+    stamp_size = Field[int](
+        doc="The stamp size to use for measurements",
+        default=DEFAULT_STAMP_SIZE,
+    )
 
     def setDefaults(self):
         super().setDefaults()

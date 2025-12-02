@@ -26,7 +26,6 @@ from lsst.pex.exceptions import (
 from ..procflags import (
     EDGE_HIT,
     ZERO_WEIGHTS,
-    CENTROID_FAILURE,
     NO_ATTEMPT,
 )
 from ..fitting import (
@@ -337,10 +336,6 @@ def measure(
             # failure creating some observation due to zero weights
             LOG.info('%s', err)
             flags = ZERO_WEIGHTS
-        except CentroidFailError as err:
-            # failure in the center finding
-            LOG.info(str(err))
-            flags = CENTROID_FAILURE
 
         if flags != 0:
             this_gauss_res = get_wavg_output_struct(
@@ -351,7 +346,8 @@ def measure(
                 nband=nband,
                 model='pgauss',
             )
-            this_gauss_res['gauss_flags'] = flags
+            this_gauss_res['gauss_flags'] |= flags
+            this_pgauss_res['pgauss_flags'] |= flags
 
         this_res = _get_combined_struct(this_gauss_res, this_pgauss_res)
 
@@ -375,10 +371,7 @@ def measure(
 
 
 def get_pgauss_fitter(config):
-    return ngmix.prepsfmom.PGaussMom(
-        fwhm=config['weight']['fwhm'],
-        fwhm_smooth=config['weight']['fwhm_smooth'],
-    )
+    return ngmix.prepsfmom.PGaussMom(fwhm=config['pgauss']['fwhm'])
 
 
 def _get_combined_struct(gauss_res, pgauss_res):
@@ -870,19 +863,6 @@ class MissingDataError(Exception):
 
 
 class AllZeroWeightError(Exception):
-    """
-    Some number was out of range
-    """
-
-    def __init__(self, value):
-        super().__init__(value)
-        self.value = value
-
-    def __str__(self):
-        return repr(self.value)
-
-
-class CentroidFailError(Exception):
     """
     Some number was out of range
     """

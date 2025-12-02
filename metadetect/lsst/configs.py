@@ -26,14 +26,14 @@ def get_config(config=None):
                 raise ValueError('bad key in mdet config: %s' % key)
 
             # deal with sub-configs
-            if key in ['detect', 'metacal', 'weight']:
+            if key in ['detect', 'metacal', 'pgauss']:
                 new_config[key].update(config[key])
             else:
                 new_config[key] = config[key]
 
     # do some verification
     # note we allow ngmix.metacal.get_all_metacal to do its own verification
-    _verify_weight_config(new_config['weight'])
+    _verify_pgauss_config(new_config['pgauss'])
     _verify_detect_config(new_config['detect'])
 
     return new_config
@@ -49,17 +49,17 @@ def _verify_detect_config(config):
     _check_keywords(config=config, allowed_keys=['thresh'], name=name)
 
 
-def _verify_weight_config(config):
+def _verify_pgauss_config(config):
 
-    name = 'weight'
+    name = 'pgauss'
     _check_required_keywords(
         config=config,
-        required_keys=['fwhm', 'fwhm_smooth'],
+        required_keys=['fwhm'],
         name=name,
     )
     _check_keywords(
         config=config,
-        allowed_keys=['fwhm', 'fwhm_smooth'],
+        allowed_keys=['fwhm'],
         name=name,
     )
 

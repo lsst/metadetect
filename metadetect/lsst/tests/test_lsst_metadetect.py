@@ -24,8 +24,6 @@ except LookupError:
     skip_tests_on_simulations = True
 
 
-ngmix_v = float(ngmix.__version__[:3])
-
 logging.basicConfig(
     stream=sys.stdout,
     level=logging.INFO,
@@ -159,8 +157,7 @@ def test_lsst_metadetect_smoke(subtract_sky, metacal_types_option):
     reason='descwl_shear_sims and/or descwl_coadd not available'
 )
 @pytest.mark.skipif(ngmix_v < 2.1, reason="requires ngmix 2.1 or higher")
-@pytest.mark.parametrize('fwhm_smooth', [None, 1.2])
-def test_lsst_metadetect_weight(fwhm_smooth):
+def test_lsst_metadetect_weight():
     rng = np.random.RandomState(seed=882)
 
     bands = ['r', 'i']
@@ -169,17 +166,13 @@ def test_lsst_metadetect_weight(fwhm_smooth):
 
     fwhm = 2.0
     config = {
-        'weight': {
+        'pgauss': {
             'fwhm': fwhm,
         }
     }
-    if fwhm_smooth is not None:
-        config['weight']['fwhm_smooth'] = fwhm_smooth
 
     fitter = get_pgauss_fitter(config=get_config(config))
     assert fitter.fwhm == fwhm
-    if fwhm_smooth is not None:
-        assert fitter.fwhm_smooth == fwhm_smooth
 
     res = run_metadetect(rng=rng, config=config, **data)
 
@@ -267,6 +260,9 @@ def test_lsst_zero_weights(show=False):
             for shear_type, tres in resdict.items():
                 assert np.any(
                     tres['gauss_flags'] & procflags.ZERO_WEIGHTS != 0
+                )
+                assert np.any(
+                    tres['pgauss_flags'] & procflags.ZERO_WEIGHTS != 0
                 )
                 assert np.any(
                     tres['gauss_psf_flags'] & procflags.NO_ATTEMPT != 0
