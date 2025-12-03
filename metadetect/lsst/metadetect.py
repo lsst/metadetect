@@ -151,6 +151,12 @@ class MetadetectConfig(Config):
         default=DEFAULT_STAMP_SIZE,
     )
 
+    shear_bands = ListField[str](
+        doc="List of bands to use for shear measurements. Default is to use all bands.",
+        default=None,
+        optional=True,
+    )
+
     def setDefaults(self):
         super().setDefaults()
 
@@ -177,8 +183,6 @@ class MetadetectTask(Task):
     ):
         # This is to support methods that are not yet refactored.
         config = self.config.toDict()
-        # Because this is a property and not a Field, we set this explicitly.
-        config['stamp_size'] = self.config.stamp_size
         config['detect']['thresh'] = self.detect.config.thresholdValue
 
         ormask = combine_ormasks(mbexp, ormasks)

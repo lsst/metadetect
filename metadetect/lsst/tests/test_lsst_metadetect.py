@@ -156,8 +156,76 @@ def test_lsst_metadetect_smoke(subtract_sky, metacal_types_option):
     skip_tests_on_simulations,
     reason='descwl_shear_sims and/or descwl_coadd not available'
 )
-@pytest.mark.skipif(ngmix_v < 2.1, reason="requires ngmix 2.1 or higher")
-def test_lsst_metadetect_weight():
+def test_lsst_metadetect_shear_bands_missing():
+    rng = np.random.RandomState(seed=116)
+
+    bands = ['g', 'r', 'i', 'z']
+    sim_data = make_lsst_sim(116, bands=bands)
+    data = do_coadding(rng=rng, sim_data=sim_data, nowarp=True)
+    config = {"shear_bands": ["r", "Y"]}
+    with pytest.raises(RuntimeError) as e:
+        run_metadetect(rng=rng, config=config, **data)
+
+    assert "'r', 'Y'" in str(e.value)
+
+
+@pytest.mark.skipif(
+    skip_tests_on_simulations,
+    reason='descwl_shear_sims and/or descwl_coadd not available'
+)
+def test_lsst_metadetect_shear_bands():
+    rng = np.random.RandomState(seed=116)
+
+    bands = ['g', 'r', 'i', 'z']
+    nband = len(bands)
+    sim_data = make_lsst_sim(116, bands=bands)
+    data = do_coadding(rng=rng, sim_data=sim_data, nowarp=True)
+
+    config = {"shear_bands": ["r", "z"]}
+    metacal_types = ['noshear', '1p', '1m']
+
+    detected = afw_image.Mask.getPlaneBitMask('DETECTED')
+    res = run_metadetect(rng=rng, config=config, **data)
+
+    # we remove the DETECTED bit
+    assert np.all(res['noshear']['bmask'] & detected == 0)
+
+    for metacal_type in metacal_types:
+        assert (
+            metacal_type in res.keys()
+        ), f"metacal_type={metacal_type} not in res.keys()"
+
+    for front in ['gauss', 'pgauss']:
+        if front == 'gauss':
+            gname = f'{front}_g'
+            assert gname in res['noshear'].dtype.names
+
+        flux_name = f'{front}_band_flux'
+
+        for shear in metacal_types:
+            # 5x5 grid
+            assert res[shear].size == 25
+
+            assert np.any(res[shear][f"{front}_flags"] == 0)
+            assert np.all(res[shear]["mfrac"] == 0)
+            assert res[shear][flux_name].shape == (25, nband)
+
+    for shear in metacal_types:
+        assert np.all(res[shear]["shear_bands"] == np.array([["13"]]))
+        # g and i band should be all NaNs for gauss
+        assert np.all(np.isnan(res[shear]["gauss_band_flux"][:, 0]))
+        assert np.all(np.isnan(res[shear]["gauss_band_flux"][:, 2]))
+        # rest should be finite
+        assert np.all(np.isfinite(res[shear]["gauss_band_flux"][:, 1]))
+        assert np.all(np.isfinite(res[shear]["gauss_band_flux"][:, 3]))
+        assert np.all(np.isfinite(res[shear]["pgauss_band_flux"]))
+
+
+@pytest.mark.skipif(
+    skip_tests_on_simulations,
+    reason='descwl_shear_sims and/or descwl_coadd not available'
+)
+def test_lsst_metadetect_pgauss():
     rng = np.random.RandomState(seed=882)
 
     bands = ['r', 'i']

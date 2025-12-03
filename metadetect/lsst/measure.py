@@ -282,6 +282,16 @@ def measure(
     pgauss_fitter = get_pgauss_fitter(config)
 
     nband = len(mbexp.bands)
+    shear_band_names = config["shear_bands"] or mbexp.bands
+    if not all([sb in mbexp.bands for sb in shear_band_names]):
+        raise RuntimeError(
+            "Not all requested bands for shear are available. "
+            f"Bands `{shear_band_names}` were requested but the only "
+            f"bands available are `{mbexp.bands}`."
+        )
+    shear_bands = [
+        i for i, band in enumerate(mbexp.bands) if band in shear_band_names
+    ]
     exp_bbox = mbexp.getBBox()
     wcs = mbexp.singles[0].getWcs()
     results = []
@@ -317,6 +327,7 @@ def measure(
             this_gauss_res = get_wavg_output_struct(
                 nband=nband,
                 model='gauss',
+                shear_bands=shear_bands,
             )
             this_pgauss_res = get_wavg_output_struct(
                 nband=nband,
@@ -343,6 +354,7 @@ def measure(
                 bmask_flags=0,
                 psf_runner=psf_runner,
                 rng=rng,
+                shear_bands=shear_bands,
             )
 
             this_pgauss_res = fit_mbobs_wavg(
@@ -394,7 +406,7 @@ def _get_combined_struct(gauss_res, pgauss_res):
     out = eu.numpy_util.add_fields(gauss_res, keep_dt)
 
     for n in pgauss_res.dtype.names:
-        if n in out.dtype.names:
+        if n in out.dtype.names and n != "shear_bands":
             out[n] = pgauss_res[n]
 
     return out
