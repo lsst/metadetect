@@ -15,6 +15,15 @@ from metadetect.lsst import vis
 from metadetect.lsst.model_subtractor import ModelSubtractor
 from metadetect.lsst.mbobs_extractor import MBObsExtractor
 from lsst.pex.exceptions import LengthError
+from lsst.utils import getPackageDir
+
+try:
+    getPackageDir('descwl_shear_sims')
+    getPackageDir('descwl_coadd')
+    skip_tests_on_simulations = False
+except LookupError:
+    skip_tests_on_simulations = True
+
 
 logging.basicConfig(
     stream=sys.stdout,
@@ -79,6 +88,10 @@ def do_coadding(rng, sim_data, nowarp=True):
     return util.extract_multiband_coadd_data(coadd_data_list)
 
 
+@pytest.mark.skipif(
+    skip_tests_on_simulations,
+    reason='descwl_shear_sims and/or descwl_coadd not available'
+)
 @pytest.mark.skipif(
     "CATSIM_DIR" not in os.environ,
     reason='simulation input data is not present',
@@ -145,6 +158,10 @@ def test_lsst_model_subtractor_smoke(seed=225, ntrial=1, show=False):
     print('time per:', tm / ntrial)
 
 
+@pytest.mark.skipif(
+    skip_tests_on_simulations,
+    reason='descwl_shear_sims and/or descwl_coadd not available'
+)
 @pytest.mark.skipif(
     "CATSIM_DIR" not in os.environ,
     reason='simulation input data is not present',
