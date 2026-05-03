@@ -161,6 +161,10 @@ def test_lsst_metadetect_smoke(subtract_sky, metacal_types_option):
             assert len(res[shear][flux_name][0]) == len(bands)
 
 
+@pytest.mark.skipif(
+    skip_tests_on_simulations,
+    reason='descwl_shear_sims and/or descwl_coadd not available'
+)
 @pytest.mark.parametrize("metacal_reconv_option", [None, "fitgauss", "gauss"])
 def test_lsst_metadetect_reconv(metacal_reconv_option):
     rng = np.random.RandomState(seed=116)
@@ -526,6 +530,10 @@ def test_lsst_metadetect_mfrac_ormask(show=False):
             assert np.any(res[shear]["ormask"] & flag != 0)
 
 
+@pytest.mark.skipif(
+    skip_tests_on_simulations,
+    reason='descwl_shear_sims and/or descwl_coadd not available'
+)
 @pytest.mark.parametrize('deblender', ['sdss', 'scarlet'])
 def test_lsst_metadetect_deblender_grid(deblender):
     rng = np.random.RandomState(seed=116)
@@ -565,6 +573,10 @@ def test_lsst_metadetect_deblender_grid(deblender):
             assert len(res[shear][flux_name][0]) == len(bands)
 
 
+@pytest.mark.skipif(
+    skip_tests_on_simulations,
+    reason='descwl_shear_sims and/or descwl_coadd not available'
+)
 @pytest.mark.parametrize('deblender', ['sdss', 'scarlet'])
 def test_lsst_metadetect_deblender_random(deblender, show=False):
     rng = np.random.RandomState(seed=116)
