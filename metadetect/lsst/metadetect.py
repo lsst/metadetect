@@ -117,6 +117,15 @@ class MetacalConfig(Config):
         ],
     )
 
+    reconv_type = ChoiceField[str](
+        doc="Type of reconvolution kernel to use",
+        default="fitgauss",
+        allowed={
+            "fitgauss": "Use a gaussian fit to determine reconvolution kernel",
+            "gauss": "Use k-space power to determine reconvolution kernel",
+        },
+    )
+
     def validate(self):
         super().validate()
         if not set(self.types).issubset({"noshear", "1p", "1m", "2p", "2m"}):
@@ -214,10 +223,15 @@ class MetadetectTask(Task):
 
         metacal_types = config['metacal'].get('types', None)
 
+        if config['metacal']['reconv_type'] == 'fitgauss':
+            perband_psf_stats = psf_stats['perband']
+        else:
+            perband_psf_stats = None
+
         mdict, _ = get_metacal_mbexps_fixnoise(
             mbexp=mbexp,
             noise_mbexp=noise_mbexp,
-            psf_stats=psf_stats['perband'],
+            psf_stats=perband_psf_stats,
             types=metacal_types,
         )
 
