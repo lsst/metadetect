@@ -12,8 +12,18 @@ import logging
 import numpy as np
 import esutil as eu
 
-from ngmix.medsreaders import NGMixMEDS, MultiBandNGMixMEDS
-from meds.util import get_image_info_struct
+try:
+    from ngmix.medsreaders import NGMixMEDS, MultiBandNGMixMEDS
+    from meds.util import get_image_info_struct
+except ImportError:
+    class NGMixMEDS:
+        pass
+
+    class MultiBandNGMixMEDS:
+        pass
+
+    def get_image_info_struct(*args, **kwargs):
+        pass
 
 from . import defaults
 
