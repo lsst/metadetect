@@ -9,6 +9,7 @@ import logging
 import ngmix
 import metadetect
 from metadetect import procflags
+import metadetect.lsst.metadetect as lsst_mdet
 from metadetect.lsst.metadetect import run_metadetect
 from metadetect.lsst.measure import get_pgauss_fitter
 from metadetect.lsst.configs import get_config
@@ -20,6 +21,175 @@ logging.basicConfig(
     stream=sys.stdout,
     level=logging.INFO,
 )
+
+
+def test_fit_original_psfs_mbexp_returns_per_band(monkeypatch):
+    rng = np.random.RandomState(seed=117)
+    bands = ['r', 'i', 'z']
+
+    class FakeExposure:
+        def getWcs(self):
+            return None
+
+        def getBBox(self):
+            return None
+
+    class FakeMbexp:
+        def __init__(self, bands):
+            self.bands = bands
+            self.exposures = [FakeExposure() for _ in bands]
+
+        def __iter__(self):
+            return iter(self.exposures)
+
+    class FakeJacobian:
+        def copy(self):
+            return self
+
+        def set_cen(self, row, col):
+            pass
+
+    class FakePSFRunner:
+        def __init__(self, fitter, guesser, ntry):
+            self._results = [
+                {'flags': 0, 'e': (0.1, 0.2), 'T': 1.1},
+                {'flags': 1, 'e': (0.3, 0.4), 'T': 2.2},
+                {'flags': 0, 'e': (0.5, 0.6), 'T': 3.3},
+            ]
+
+        def go(self, obs):
+            return self._results.pop(0)
+
+    monkeypatch.setattr(
+        lsst_mdet,
+        'get_integer_center',
+        lambda wcs, bbox, as_double: ((0, 0), None),
+    )
+    monkeypatch.setattr(
+        lsst_mdet,
+        'get_jacobian',
+        lambda exp, cen: FakeJacobian(),
+    )
+    monkeypatch.setattr(
+        lsst_mdet.measure,
+        'extract_psf_image',
+        lambda exp, cen: np.zeros((3, 3)),
+    )
+    monkeypatch.setattr(
+        lsst_mdet.ngmix,
+        'Observation',
+        lambda image, jacobian: object(),
+    )
+    monkeypatch.setattr(
+        lsst_mdet.ngmix.runners,
+        'PSFRunner',
+        FakePSFRunner,
+    )
+
+    psf_stats = lsst_mdet.fit_original_psfs_mbexp(
+        mbexp=FakeMbexp(bands),
+        rng=rng,
+    )
+
+    # Check that it returns a numpy structured array
+    import numpy as np
+    assert isinstance(psf_stats, np.ndarray)
+    assert psf_stats.dtype.names == ('e1', 'e2', 'T', 'flags')
+    assert len(psf_stats) == len(bands)
+
+    # Check values by index (bands are in order: r, i, z)
+    assert psf_stats['flags'][0] == 0  # r band
+    assert psf_stats['e1'][0] == 0.1
+    assert psf_stats['e2'][0] == 0.2
+    assert psf_stats['T'][0] == 1.1
+
+    assert psf_stats['flags'][1] == procflags.PSF_FAILURE  # i band
+    assert psf_stats['e1'][1] == -9999.0
+    assert psf_stats['e2'][1] == -9999.0
+    assert psf_stats['T'][1] == -9999.0
+
+    assert psf_stats['flags'][2] == 0  # z band
+    assert psf_stats['e1'][2] == 0.5
+    assert psf_stats['e2'][2] == 0.6
+    assert psf_stats['T'][2] == 3.3
+
+
+def test_average_psf_stats():
+    import numpy as np
+    # Create numpy structured array as returned by fit_original_psfs_mbexp
+    psf_stats = np.zeros(3, dtype=[('e1', 'f8'), ('e2', 'f8'), ('T', 'f8'), ('flags', 'i4')])
+    psf_stats['e1'] = [0.1, 0.3, 0.5]  # g, r, i bands
+    psf_stats['e2'] = [0.2, 0.4, 0.6]
+    psf_stats['T'] = [1.0, 3.0, 5.0]
+    psf_stats['flags'] = [0, 0, 0]
+
+    wgts = [1.0, 1.0, 1.0]  # weights by index: g, r, i
+
+    result = lsst_mdet.average_psf_stats(
+        psf_stats=psf_stats,
+        wgts=wgts,
+    )
+    assert result['flags'] == 0
+    assert result['g1'] == pytest.approx(0.3)
+    assert result['g2'] == pytest.approx(0.4)
+    assert result['T'] == pytest.approx(3.0)
+
+    result = lsst_mdet.average_psf_stats(
+        psf_stats=psf_stats,
+        wgts=wgts,
+    )
+    assert result['flags'] == 0
+    assert result['g1'] == pytest.approx(0.4)
+    assert result['g2'] == pytest.approx(0.5)
+    assert result['T'] == pytest.approx(4.0)
+
+
+def test_average_psf_stats_with_failure():
+    import numpy as np
+    # Create numpy structured array with a failure in the i band
+    psf_stats = np.zeros(3, dtype=[('e1', 'f8'), ('e2', 'f8'), ('T', 'f8'), ('flags', 'i4')])
+    psf_stats['e1'] = [0.3, -9999.0, 0.5]  # r, i, z bands
+    psf_stats['e2'] = [0.4, -9999.0, 0.6]
+    psf_stats['T'] = [3.0, -9999.0, 5.0]
+    psf_stats['flags'] = [0, procflags.PSF_FAILURE, 0]
+
+    wgts = [1.0, 1.0, 1.0]  # weights by index: r, i, z
+
+    result = lsst_mdet.average_psf_stats(
+        psf_stats=psf_stats,
+        wgts=wgts,
+    )
+    assert result['flags'] == procflags.PSF_FAILURE
+    assert result['g1'] == -9999.0
+    assert result['g2'] == -9999.0
+    assert result['T'] == -9999.0
+
+    result = lsst_mdet.average_psf_stats(
+        psf_stats=psf_stats,
+        wgts=wgts,
+    )
+    assert result['flags'] == 0
+    assert result['g1'] == pytest.approx(0.4)
+    assert result['g2'] == pytest.approx(0.5)
+    assert result['T'] == pytest.approx(4.0)
+
+
+def test_average_psf_stats_missing_band():
+    import numpy as np
+    # Create numpy structured array with only r band
+    psf_stats = np.zeros(1, dtype=[('e1', 'f8'), ('e2', 'f8'), ('T', 'f8'), ('flags', 'i4')])
+    psf_stats['e1'][0] = 0.3
+    psf_stats['e2'][0] = 0.4
+    psf_stats['T'][0] = 3.0
+    psf_stats['flags'][0] = 0
+
+    wgts = [1.0]  # weights by index: r
+
+    with pytest.raises(RuntimeError, match='Not all requested bands'):
+        lsst_mdet.average_psf_stats(
+            psf_stats=psf_stats,
+            wgts=wgts,
+        )
 
 
 def make_lsst_sim(
