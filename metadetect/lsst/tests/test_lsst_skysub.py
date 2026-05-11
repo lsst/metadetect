@@ -102,7 +102,7 @@ def show_image(exp):
 def check_skysub(meanvals, errvals, image_noise, true_sky):
     meansky = meanvals.mean()
     stdsky = meanvals.std()
-    errsky = stdsky/np.sqrt(meanvals.size)
+    errsky = stdsky / np.sqrt(meanvals.size)
     errmean = errvals.mean()
 
     tol = image_noise / 10

@@ -482,7 +482,7 @@ def coadd_exposures(exposures):
     for i, exp in enumerate(exposures):
         shape = exp.image.array.shape
 
-        ycen, xcen = (np.array(shape) - 1)/2
+        ycen, xcen = (np.array(shape) - 1) / 2
         cen = geom.Point2D(xcen, ycen)
 
         psfobj = exp.getPsf()
@@ -501,12 +501,12 @@ def coadd_exposures(exposures):
 
         w = np.where(exp.variance.array > 0)
         medvar = np.median(exp.variance.array[w])
-        this_weight = 1.0/medvar
+        this_weight = 1.0 / medvar
 
         coadd_exp.image.array[w] += exp.image.array[w] * this_weight
         psf_im += this_psfim * this_weight
 
-        weight[w] += 1.0/exp.variance.array[w]
+        weight[w] += 1.0 / exp.variance.array[w]
 
         wsum += this_weight
 
@@ -514,16 +514,16 @@ def coadd_exposures(exposures):
         logger.info('found wsum <= 0')
         return None
 
-    fac = 1.0/wsum
+    fac = 1.0 / wsum
 
     coadd_exp.image.array[:, :] *= fac
 
     # the psf is always normalized
-    psf_im *= 1.0/psf_im.sum()
+    psf_im *= 1.0 / psf_im.sum()
 
     coadd_exp.variance.array[:, :] = np.inf
     w = np.where(weight > 0)
-    coadd_exp.variance.array[w] = 1/weight[w]
+    coadd_exp.variance.array[w] = 1 / weight[w]
 
     coadd_psf = get_stack_kernel_psf(psf_im)
     coadd_exp.setPsf(coadd_psf)
@@ -591,12 +591,12 @@ def coadd_mbobs(mbobs):
 
         wsum += this_weight
 
-    fac = 1.0/wsum
+    fac = 1.0 / wsum
 
     coadd_image[:, :] *= fac
 
     # the psf is always normalized
-    coadd_psf *= 1.0/coadd_psf.sum()
+    coadd_psf *= 1.0 / coadd_psf.sum()
 
     # use the jacobians from the last obs
     jac = obs.jacobian
@@ -635,14 +635,14 @@ def trim_odd_image(im):
         assert dims[1] % 2 != 0, 'image must have odd dims'
 
         dims = np.array(dims)
-        cen = (dims-1)//2
+        cen = (dims - 1) // 2
         cen = cen.astype('i4')
 
         distances = (
-            cen[0]-0,
-            dims[0]-cen[0]-1,
-            cen[1]-0,
-            dims[1]-cen[1]-1,
+            cen[0] - 0,
+            dims[0] - cen[0] - 1,
+            cen[1] - 0,
+            dims[1] - cen[1] - 1,
         )
         logger.debug('distances: %s' % str(distances))
         min_dist = min(distances)
@@ -654,8 +654,8 @@ def trim_odd_image(im):
 
         # adding +1 for slices
         new_im = im[
-            start_row:end_row+1,
-            start_col:end_col+1,
+            start_row: end_row + 1,
+            start_col: end_col + 1,
         ].copy()
 
         logger.debug('new dims: %s' % str(new_im.shape))
@@ -717,7 +717,7 @@ def obs2exp(obs, exp=None, copy_mask_from='bmask', copy_psf=False):
     exp.mask.array[:, :] = mask
 
     w = np.where(obs.weight > 0)
-    exp.variance.array[w] = 1.0/obs.weight[w]
+    exp.variance.array[w] = 1.0 / obs.weight[w]
 
     if copy_psf:
         psf_image = obs.psf.image
@@ -775,20 +775,20 @@ def exp2obs(exp, copy_mask_to='ormask', store_exp=False):
     dims = exp.image.array.shape
     weight = np.zeros(dims)
     w = np.where(exp.variance.array > 0)
-    weight[w] = 1.0/exp.variance.array[w]
+    weight[w] = 1.0 / exp.variance.array[w]
 
     psf_obj = exp.getPsf()
     psf_image = psf_obj.computeKernelImage(cen).array
 
     assert psf_image.shape[0] == psf_image.shape[1], 'psf is not square'
     assert psf_image.shape[0] % 2 != 0, 'psf dims are not odd'
-    psf_cen = (np.array(psf_image.shape)-1.0)/2.0
+    psf_cen = (np.array(psf_image.shape) - 1.0) / 2.0
 
     psf_jac = jac.copy()
     psf_jac.set_cen(row=psf_cen[0], col=psf_cen[1])
 
-    psf_err = psf_image.max()*0.0001
-    psf_weight = psf_image*0 + 1.0/psf_err**2
+    psf_err = psf_image.max() * 0.0001
+    psf_weight = psf_image * 0 + 1.0 / psf_err**2
 
     psf_obs = ngmix.Observation(
         image=psf_image,
