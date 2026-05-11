@@ -395,8 +395,8 @@ def measure(
             with extractor.add_source(source_id):
                 mbobs = extractor.get_mbobs(
                     source_id=source_id,
-                stamp_size=config['stamp_size'],
-            )
+                    stamp_size=config['stamp_size'],
+                )
         except LengthError as err:
             # This is raised when a bbox hits an edge
             LOG.debug('%s', err)

@@ -100,50 +100,50 @@ def show_mbexp(
     """
 
     with mplt.style.context('dark_background'):
-    image = mbexp.image.array
+        image = mbexp.image.array
 
-    if ax is None:
-        fig, ax = mplt.subplots()
+        if ax is None:
+            fig, ax = mplt.subplots()
 
-    if image.shape[0] >= 3:
+        if image.shape[0] >= 3:
             import lsst.scarlet.lite as scl
-        from astropy.visualization.lupton_rgb import AsinhMapping
+            from astropy.visualization.lupton_rgb import AsinhMapping
 
-        timage = image[:3, :, :].clip(min=0)
+            timage = image[:3, :, :].clip(min=0)
 
-        asinh = AsinhMapping(
-            minimum=0,
-            stretch=stretch,
-            Q=q,
-        )
+            asinh = AsinhMapping(
+                minimum=0,
+                stretch=stretch,
+                Q=q,
+            )
 
             img_rgb = scl.display.img_to_rgb(timage, norm=asinh)
 
-        ax.imshow(img_rgb)
+            ax.imshow(img_rgb)
 
-    else:
-        noise = np.sqrt(np.median(mbexp.variance.array))
-        if image.shape[0] == 1:
-            timage = image[0]
         else:
-            timage = image.sum(axis=0)
+            noise = np.sqrt(np.median(mbexp.variance.array))
+            if image.shape[0] == 1:
+                timage = image[0]
+            else:
+                timage = image.sum(axis=0)
 
-        noise = np.sqrt(np.median(mbexp.variance.array))
-        minval = 0.1 * noise
-        ax.imshow(np.log(timage.clip(min=minval)))
+            noise = np.sqrt(np.median(mbexp.variance.array))
+            minval = 0.1 * noise
+            ax.imshow(np.log(timage.clip(min=minval)))
 
-    if sources is not None:
-        x, y = _extract_xy(mbexp, sources)
-        ax.scatter(
-            x, y,
-            s=SIZE, color=COLOR, edgecolor=EDGECOLOR,
-        )
+        if sources is not None:
+            x, y = _extract_xy(mbexp, sources)
+            ax.scatter(
+                x, y,
+                s=SIZE, color=COLOR, edgecolor=EDGECOLOR,
+            )
 
-    if mess is not None:
-        ax.set_title(mess)
+        if mess is not None:
+            ax.set_title(mess)
 
-    if show:
-        mplt.show()
+        if show:
+            mplt.show()
 
     return ax
 
