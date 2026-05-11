@@ -13,6 +13,7 @@ from metadetect.lsst.metadetect import run_metadetect
 from metadetect.lsst.measure import get_pgauss_fitter
 from metadetect.lsst.configs import get_config
 from metadetect.lsst import util
+from metadetect.lsst import vis
 import lsst.afw.image as afw_image
 from lsst.utils import getPackageDir
 
@@ -30,7 +31,9 @@ logging.basicConfig(
 )
 
 
-def make_lsst_sim(seed, mag=20, hlr=0.5, bands=None):
+def make_lsst_sim(
+    seed, mag=20, hlr=0.5, bands=None, layout='grid', psf_type='gauss',
+):
     import descwl_shear_sims
 
     rng = np.random.RandomState(seed=seed)
@@ -43,12 +46,18 @@ def make_lsst_sim(seed, mag=20, hlr=0.5, bands=None):
         rng=rng,
         coadd_dim=coadd_dim,
         buff=20,
-        layout='grid',
+        layout=layout,
         mag=mag,
         hlr=hlr,
     )
 
-    psf = descwl_shear_sims.psfs.make_fixed_psf(psf_type='gauss')
+    if psf_type == 'ps':
+        psf = descwl_shear_sims.psfs.make_ps_psf(
+            rng=rng,
+            dim=300,
+        )
+    else:
+        psf = descwl_shear_sims.psfs.make_fixed_psf(psf_type=psf_type)
 
     sim_data = descwl_shear_sims.make_sim(
         rng=rng,
@@ -152,6 +161,62 @@ def test_lsst_metadetect_smoke(subtract_sky, metacal_types_option):
             assert len(res[shear][flux_name][0]) == len(bands)
 
 
+@pytest.mark.parametrize("metacal_reconv_option", [None, "fitgauss", "gauss"])
+def test_lsst_metadetect_reconv(metacal_reconv_option):
+    rng = np.random.RandomState(seed=116)
+
+    bands = ['r', 'i']
+    sim_data = make_lsst_sim(116, bands=bands)
+    data = do_coadding(rng=rng, sim_data=sim_data, nowarp=True)
+
+    config = {}
+
+    if metacal_reconv_option is not None:
+        config['metacal'] = {}
+        config['metacal']['reconv_type'] = metacal_reconv_option
+
+    test_config = get_config(config)
+
+    if metacal_reconv_option is not None:
+        assert test_config['metacal']['reconv_type'] == metacal_reconv_option
+    else:
+        assert test_config['metacal']['reconv_type'] == 'fitgauss'
+
+    res = run_metadetect(rng=rng, config=config, **data)  # noqa
+
+
+@pytest.mark.xfail
+def test_lsst_metadetect_reconv_size():
+    """
+    This currently fails because the PSF images have no noise.  fitgauss
+    will outperform gauss for noisy PSFs
+    """
+    rng = np.random.RandomState(seed=232)
+
+    bands = ['r', 'i']
+    sim_data = make_lsst_sim(5520, bands=bands, psf_type='ps')
+    data = do_coadding(rng=rng, sim_data=sim_data, nowarp=True)
+
+    config = {}
+    config['metacal'] = {}
+    config['metacal']['reconv_type'] = 'fitgauss'
+    res_fitgauss = run_metadetect(rng=rng, config=config, **data)  # noqa
+
+    config['metacal']['reconv_type'] = 'gauss'
+    res_gauss = run_metadetect(rng=rng, config=config, **data)  # noqa
+
+    mT_fitgauss = res_fitgauss['noshear']['gauss_psf_T'].mean()
+    mT_gauss = res_gauss['noshear']['gauss_psf_T'].mean()
+
+    fwhm_fitgauss = ngmix.moments.T_to_fwhm(mT_fitgauss)
+    fwhm_gauss = ngmix.moments.T_to_fwhm(mT_gauss)
+
+    assert fwhm_fitgauss < fwhm_gauss, (
+        'expected fitgauss fwhm < gauss fwhm, '
+        f'got {fwhm_fitgauss} > {fwhm_gauss}'
+    )
+
+
 @pytest.mark.skipif(
     skip_tests_on_simulations,
     reason='descwl_shear_sims and/or descwl_coadd not available'
@@ -239,7 +304,8 @@ def test_lsst_metadetect_pgauss():
         }
     }
 
-    fitter = get_pgauss_fitter(config=get_config(config))
+    config = get_config(config)
+    fitter = get_pgauss_fitter(pgauss_config=config['pgauss'])
     assert fitter.fwhm == fwhm
 
     res = run_metadetect(rng=rng, config=config, **data)
@@ -460,7 +526,88 @@ def test_lsst_metadetect_mfrac_ormask(show=False):
             assert np.any(res[shear]["ormask"] & flag != 0)
 
 
+@pytest.mark.parametrize('deblender', ['sdss', 'scarlet'])
+def test_lsst_metadetect_deblender_grid(deblender):
+    rng = np.random.RandomState(seed=116)
+
+    bands = ['r', 'i']
+    sim_data = make_lsst_sim(116, bands=bands)
+    data = do_coadding(rng=rng, sim_data=sim_data, nowarp=True)
+
+    config = {
+        'deblender': deblender,
+    }
+
+    res = run_metadetect(rng=rng, config=config, **data)
+
+    metacal_types = ['noshear', '1p', '1m']
+
+    for metacal_type in metacal_types:
+        assert (
+            metacal_type in res.keys()
+        ), f"metacal_type={metacal_type} not in res.keys()"
+
+    for front in ['gauss', 'pgauss']:
+        if front == 'gauss':
+            gname = f'{front}_g'
+            assert gname in res['noshear'].dtype.names
+
+        flux_name = f'{front}_band_flux'
+
+        for shear in metacal_types:
+            # 5x5 grid
+            assert res[shear].size == 25
+
+            assert np.any(res[shear][f"{front}_flags"] == 0)
+            assert np.all(res[shear]["mfrac"] == 0)
+
+            assert len(res[shear][flux_name].shape) == len(bands)
+            assert len(res[shear][flux_name][0]) == len(bands)
+
+
+@pytest.mark.parametrize('deblender', ['sdss', 'scarlet'])
+def test_lsst_metadetect_deblender_random(deblender, show=False):
+    rng = np.random.RandomState(seed=116)
+
+    bands = ['r', 'i']
+    sim_data = make_lsst_sim(116, mag=24, bands=bands, layout='random')
+    data = do_coadding(rng=rng, sim_data=sim_data, nowarp=True)
+
+    if show:
+        vis.show_image(data['mbexp']['i'].image.array)
+
+    config = {
+        'deblender': deblender,
+    }
+
+    res = run_metadetect(rng=rng, config=config, **data)
+
+    if show:
+        vis.show_image(data['mbexp']['i'].image.array, cat=res['noshear'])
+
+    metacal_types = ['noshear', '1p', '1m']
+
+    for metacal_type in metacal_types:
+        assert (
+            metacal_type in res.keys()
+        ), f"metacal_type={metacal_type} not in res.keys()"
+
+    for front in ['gauss', 'pgauss']:
+        if front == 'gauss':
+            gname = f'{front}_g'
+            assert gname in res['noshear'].dtype.names
+
+        flux_name = f'{front}_band_flux'
+
+        for shear in metacal_types:
+            assert np.any(res[shear][f"{front}_flags"] == 0)
+            assert np.all(res[shear]["mfrac"] == 0)
+
+            assert len(res[shear][flux_name].shape) == len(bands)
+            assert len(res[shear][flux_name][0]) == len(bands)
+
+
 if __name__ == '__main__':
-    test_lsst_masked_as_bright(show=True)
-    # test_lsst_metadetect_smoke('wmom', 'False')
-    # test_lsst_metadetect_mfrac_ormask(show=True)
+    # test_lsst_metadetect_deblender_random('sdss', show=True)
+    test_lsst_metadetect_reconv_size()
+    # test_lsst_metadetect_deblender_random('scarlet', show=True)
