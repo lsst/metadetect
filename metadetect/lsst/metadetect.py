@@ -189,7 +189,7 @@ class MetadetectTask(Task):
         mfrac, wgts = get_mfrac_mbexp(mbexp=mbexp, mfrac_mbexp=mfrac_mbexp)
 
         for i, band in enumerate(mbexp.bands):
-            if band not in shear_bands:
+            if band not in config['shear_bands']:
                 wgts[i] = 0
 
         if self.config.subtract_sky:

@@ -57,7 +57,7 @@ def run_photometry(
     mfrac, wgts = get_mfrac_mbexp(mbexp, mfrac_mbexp)
 
     for i, band in enumerate(mbexp.bands):
-        if band not in shear_bands:
+        if band not in config['shear_bands']:
             wgts[i] = 0
 
     if config['subtract_sky']:
