@@ -1,3 +1,7 @@
+[project]
+name = "metadetect"
+dynamic = ["version"]
+
 [tool.coverage.report]
 exclude_lines = [
     "pragma: no cover",
@@ -9,6 +13,12 @@ exclude_lines = [
 
 [tool.setuptools]
 packages = ["metadetect"]
+
+[tool.setuptools.dynamic]
+version = { attr = "lsst_versions.get_lsst_version" }
+
+[tool.lsst_versions]
+write_to = "metadetect/version.py"
 
 [tool.pytest.ini_options]
 addopts = "-rs"
