@@ -185,8 +185,20 @@ class MetadetectTask(Task):
         config = self.config.toDict()
         config['detect']['thresh'] = self.detect.config.thresholdValue
 
+        shear_bands = config['shear_bands'] or mbexp.bands
+        if not all(band in mbexp.bands for band in shear_bands):
+            raise RuntimeError(
+                "Not all requested bands for shear are available. "
+                f"Bands `{shear_bands}` were requested but the only "
+                f"bands available are `{mbexp.bands}`."
+            )
+
         ormask = combine_ormasks(mbexp, ormasks)
         mfrac, wgts = get_mfrac_mbexp(mbexp=mbexp, mfrac_mbexp=mfrac_mbexp)
+
+        for i, band in enumerate(mbexp.bands):
+            if band not in shear_bands:
+                wgts[i] = 0
 
         if self.config.subtract_sky:
             subtract_sky_mbexp(
