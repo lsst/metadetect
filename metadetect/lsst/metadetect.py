@@ -1,7 +1,7 @@
 import logging
 import numpy as np
 import ngmix
-from ngmix.gexceptions import BootPSFFailure
+from ngmix.gexceptions import BootPSFFailure, GMixRangeError
 from lsst.pex.config import (
     Config,
     ConfigField,
@@ -510,8 +510,8 @@ def fit_original_psfs_mbexp(mbexp, rng, wgts):
     runner = ngmix.runners.PSFRunner(fitter=fitter, guesser=guesser, ntry=4)
 
     try:
-        g1sum = 0.0
-        g2sum = 0.0
+        e1sum = 0.0
+        e2sum = 0.0
         Tsum = 0.0
 
         for exp, wgt in zip(mbexp, wgts):
@@ -536,27 +536,31 @@ def fit_original_psfs_mbexp(mbexp, rng, wgts):
             if res['flags'] != 0:
                 raise BootPSFFailure('failed to fit psf')
 
-            g1, g2 = res['e']
+            e1, e2 = res['e']
             T = res['T']
 
-            g1sum += g1 * wgt
-            g2sum += g2 * wgt
+            e1sum += e1 * wgt
+            e2sum += e2 * wgt
             Tsum += T * wgt
 
-        g1 = g1sum / wsum
-        g2 = g2sum / wsum
+        e1 = e1sum / wsum
+        e2 = e2sum / wsum
         T = Tsum / wsum
 
         flags = 0
 
-    except BootPSFFailure:
+        g1, g2 = ngmix.shape.e1e2_to_g1g2(e1=e1, e2=e2)
+
+    except (BootPSFFailure, GMixRangeError):
         flags = procflags.PSF_FAILURE
-        g1 = -9999.0
-        g2 = -9999.0
+        e1 = -9999.0
+        e2 = -9999.0
         T = -9999.0
 
     return {
         'flags': flags,
+        'e1': e1,
+        'e2': e2,
         'g1': g1,
         'g2': g2,
         'T': T,
