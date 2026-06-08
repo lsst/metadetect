@@ -60,6 +60,7 @@ def get_e1e2(rng):
 
 def get_Tvals(rng, noise, ntrial):
     s2n_vals = np.zeros(ntrial)
+    Tvals_original = np.zeros(ntrial)
     Tvals = np.zeros(ntrial)
     Tvals_fitgauss = np.zeros(ntrial)
 
@@ -75,7 +76,7 @@ def get_Tvals(rng, noise, ntrial):
             scale=noise,
             size=gsim.array.shape,
         )
-
+        Tvals_original[i] = 2*(galsim.hsm.FindAdaptiveMom(gsim).moments_sigma * SCALE)**2
         gsim_int = galsim.InterpolatedImage(
             gsim, x_interpolant='lanczos15',
         )
@@ -98,7 +99,7 @@ def get_Tvals(rng, noise, ntrial):
         Tvals_fitgauss[i] = T_dilated
         s2n_vals[i] = res['s2n']
 
-    return Tvals, Tvals_fitgauss, s2n_vals
+    return Tvals_original, Tvals, Tvals_fitgauss, s2n_vals
 
 
 def plot_fwhms(
@@ -130,16 +131,22 @@ def plot_fwhms(
         fwhm_fitgauss_errs,
         label='fitgauss',
     )
+    ax.plot(
+        s2n,
+        [_fwhm * 1.1 for _fwhm in fwhms],
+        label='fitgauss (pred)',
+    )
+
     ax.text(75, 0.92, "Moffat PSF")
 
     ax.legend()
-    output = 'fwhm-vs-s2n.pdf'
+    output = 'fwhm-vs-s2n.png'
     print('writing:', output)
     fig.savefig(output)
 
 
 def main():
-    ntrial = 100
+    ntrial = 1
     rng = np.random.RandomState()
 
     noises = np.logspace(
@@ -156,7 +163,7 @@ def main():
     fwhm_fitgauss_errs = np.zeros(noises.size)
 
     for i, noise in enumerate(tqdm(noises, ascii=True, ncols=70)):
-        Tvals, Tvals_fitgauss, s2n_vals = get_Tvals(
+        Tvals_original, Tvals, Tvals_fitgauss, s2n_vals = get_Tvals(
             rng=rng,
             noise=noise,
             ntrial=ntrial,
@@ -164,7 +171,7 @@ def main():
 
         s2ns[i] = s2n_vals.mean()
 
-        fwhm_vals = ngmix.moments.T_to_fwhm(Tvals)
+        fwhm_vals = ngmix.moments.T_to_fwhm(Tvals_original)
         fwhm_fitgauss_vals = ngmix.moments.T_to_fwhm(Tvals_fitgauss)
 
         fwhms[i] = fwhm_vals.mean()
