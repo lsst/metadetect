@@ -38,6 +38,7 @@ def run_metadetect(
     ormasks=None,
     config=None,
     show=False,
+    border=0,
 ):
     """
     Run metadetection on the input MultiBandObsList
@@ -71,6 +72,9 @@ def run_metadetect(
         in this dict override defaults; see lsst_configs.py
     show: bool, optional
         if set to True images will be shown
+    border: int, optional
+        If positive, detections whose centroids lie ``border`` pixels away from
+        the bounding box edge of ``mbexp`` will be excluded for measurement.
 
     Returns
     -------
@@ -96,6 +100,7 @@ def run_metadetect(
         mfrac_mbexp,
         ormasks,
         show=show,
+        border=border,
     )
     return result
 
@@ -190,6 +195,7 @@ class MetadetectTask(Task):
         mfrac_mbexp=None,
         ormasks=None,
         show=False,
+        border=0,
     ):
         # This is to support methods that are not yet refactored.
         config = self.config.toDict()
@@ -245,6 +251,7 @@ class MetadetectTask(Task):
                 config=config,
                 rng=rng,
                 show=show,
+                border=border,
             )
 
             if res is not None:
@@ -274,6 +281,7 @@ def detect_deblend_and_measure(
     config,
     rng,
     show=False,
+    border=0,
 ):
     """
     run detection, deblending and measurements.
@@ -293,6 +301,9 @@ def detect_deblend_and_measure(
         Random number generator
     show: bool, optional
         If set to True, show images during processing
+    border: bool, optional
+        If positive, detections whose centroids lie ``border`` pixels away from
+        the bounding box edge of ``mbexp`` will be excluded for measurement.
     """
 
     LOG.info('measuring with blended stamps')
@@ -303,6 +314,14 @@ def detect_deblend_and_measure(
         thresh=config['detect']['thresh'],
         show=show,
     )
+
+    if border > 0:
+        inner_bbox = detexp.getBBox().erodedBy(border)
+        if sources.isContiguous():
+            is_cell_inner = inner_bbox.contains(sources.getX(), sources.getY())
+        else:
+            is_cell_inner = np.array([inner_bbox.contains(source.getX(), source.getY()) for source in sources], dtype=bool)
+        sources = sources[is_cell_inner].copy(deep=True)
 
     results = measure.measure(
         mbexp=mbexp,
