@@ -267,10 +267,10 @@ class MetadetectTask(Task):
         for shear_str, mcal_mbexp in mdict.items():
             if rng is not None:
                 dbtask.rng = rng
-            sources, detexp, model_data = dbtask.run(mbexp=mbexp, show=show)
+            sources, detexp, model_data = dbtask.run(mbexp=mcal_mbexp, show=show)
 
             res = measure.measure(
-                mbexp=mbexp,
+                mbexp=mcal_mbexp,
                 model_data=model_data,
                 meas_task=dbtask.meas,
                 detexp=detexp,
