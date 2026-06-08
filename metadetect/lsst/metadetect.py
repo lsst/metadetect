@@ -317,10 +317,8 @@ def detect_deblend_and_measure(
 
     if border > 0:
         inner_bbox = detexp.getBBox().erodedBy(border)
-        if sources.isContiguous():
-            is_cell_inner = inner_bbox.contains(sources.getX(), sources.getY())
-        else:
-            is_cell_inner = np.array([inner_bbox.contains(source.getX(), source.getY()) for source in sources], dtype=bool)
+        sources = sources.copy(deep=not sources.isContiguous())
+        is_cell_inner = inner_bbox.contains(sources.getX(), sources.getY())
         sources = sources[is_cell_inner].copy(deep=True)
 
     results = measure.measure(
