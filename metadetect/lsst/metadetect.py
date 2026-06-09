@@ -2,6 +2,7 @@ import logging
 import numpy as np
 import ngmix
 from ngmix.gexceptions import BootPSFFailure, GMixRangeError
+import lsst.geom as geom
 from lsst.pex.config import (
     Config,
     ConfigField,
@@ -316,7 +317,7 @@ def detect_deblend_and_measure(
     )
 
     if border > 0:
-        inner_bbox = detexp.getBBox().erodedBy(border)
+        inner_bbox = geom.Box2D(detexp.getBBox()).erodedBy(border)
         sources = sources.copy(deep=not sources.isContiguous())
         is_cell_inner = inner_bbox.contains(sources.getX(), sources.getY())
         sources = sources[is_cell_inner].copy(deep=True)
