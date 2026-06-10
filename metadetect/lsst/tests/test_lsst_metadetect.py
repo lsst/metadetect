@@ -30,7 +30,9 @@ logging.basicConfig(
 )
 
 
-def make_lsst_sim(seed, mag=20, hlr=0.5, bands=None):
+def make_lsst_sim(
+    seed, mag=20, hlr=0.5, bands=None, layout='grid', psf_type='gauss',
+):
     import descwl_shear_sims
 
     rng = np.random.RandomState(seed=seed)
@@ -43,22 +45,36 @@ def make_lsst_sim(seed, mag=20, hlr=0.5, bands=None):
         rng=rng,
         coadd_dim=coadd_dim,
         buff=20,
-        layout='grid',
+        layout=layout,
         mag=mag,
         hlr=hlr,
     )
 
-    psf = descwl_shear_sims.psfs.make_fixed_psf(psf_type='gauss')
+    # This way we get different PSFs per band for PS PSF
+    sim_data = {'band_data': {}}
+    for band in bands:
+        if psf_type == 'ps':
+            psf = descwl_shear_sims.psfs.make_ps_psf(
+                rng=rng,
+                dim=300,
+            )
+        else:
+            psf = descwl_shear_sims.psfs.make_fixed_psf(psf_type=psf_type)
 
-    sim_data = descwl_shear_sims.make_sim(
-        rng=rng,
-        galaxy_catalog=galaxy_catalog,
-        coadd_dim=coadd_dim,
-        g1=0.02,
-        g2=0.00,
-        psf=psf,
-        bands=bands,
-    )
+        tsim_data = descwl_shear_sims.make_sim(
+            rng=rng,
+            galaxy_catalog=galaxy_catalog,
+            coadd_dim=coadd_dim,
+            g1=0.02,
+            g2=0.00,
+            psf=psf,
+            bands=bands,
+        )
+        for key in tsim_data:
+            if key == 'band_data':
+                sim_data['band_data'][band] = tsim_data['band_data'][band]
+            else:
+                sim_data[key] = tsim_data[key]
     return sim_data
 
 
@@ -152,6 +168,62 @@ def test_lsst_metadetect_smoke(subtract_sky, metacal_types_option):
             assert len(res[shear][flux_name][0]) == len(bands)
 
 
+@pytest.mark.parametrize("metacal_reconv_option", [None, "fitgauss", "gauss"])
+def test_lsst_metadetect_reconv(metacal_reconv_option):
+    rng = np.random.RandomState(seed=116)
+
+    bands = ['r', 'i']
+    sim_data = make_lsst_sim(116, bands=bands)
+    data = do_coadding(rng=rng, sim_data=sim_data, nowarp=True)
+
+    config = {}
+
+    if metacal_reconv_option is not None:
+        config['metacal'] = {}
+        config['metacal']['reconv_type'] = metacal_reconv_option
+
+    test_config = get_config(config)
+
+    if metacal_reconv_option is not None:
+        assert test_config['metacal']['reconv_type'] == metacal_reconv_option
+    else:
+        assert test_config['metacal']['reconv_type'] == 'fitgauss'
+
+    res = run_metadetect(rng=rng, config=config, **data)  # noqa
+
+
+@pytest.mark.xfail
+def test_lsst_metadetect_reconv_size():
+    """
+    This currently fails because the PSF images have no noise.  fitgauss
+    will outperform gauss for noisy PSFs
+    """
+    rng = np.random.RandomState(seed=232)
+
+    bands = ['r', 'i']
+    sim_data = make_lsst_sim(5520, bands=bands, psf_type='ps')
+    data = do_coadding(rng=rng, sim_data=sim_data, nowarp=True)
+
+    config = {}
+    config['metacal'] = {}
+    config['metacal']['reconv_type'] = 'fitgauss'
+    res_fitgauss = run_metadetect(rng=rng, config=config, **data)  # noqa
+
+    config['metacal']['reconv_type'] = 'gauss'
+    res_gauss = run_metadetect(rng=rng, config=config, **data)  # noqa
+
+    mT_fitgauss = res_fitgauss['noshear']['gauss_psf_T'].mean()
+    mT_gauss = res_gauss['noshear']['gauss_psf_T'].mean()
+
+    fwhm_fitgauss = ngmix.moments.T_to_fwhm(mT_fitgauss)
+    fwhm_gauss = ngmix.moments.T_to_fwhm(mT_gauss)
+
+    assert fwhm_fitgauss < fwhm_gauss, (
+        'expected fitgauss fwhm < gauss fwhm, '
+        f'got {fwhm_fitgauss} > {fwhm_gauss}'
+    )
+
+
 @pytest.mark.skipif(
     skip_tests_on_simulations,
     reason='descwl_shear_sims and/or descwl_coadd not available'
@@ -177,15 +249,18 @@ def test_lsst_metadetect_shear_bands():
     rng = np.random.RandomState(seed=116)
 
     bands = ['g', 'r', 'i', 'z']
+    shear_bands = ['r', 'z']
+
     nband = len(bands)
-    sim_data = make_lsst_sim(116, bands=bands)
+    sim_data = make_lsst_sim(116, bands=bands, psf_type='ps')
     data = do_coadding(rng=rng, sim_data=sim_data, nowarp=True)
 
-    config = {"shear_bands": ["r", "z"]}
+    config = {"shear_bands": shear_bands}
     metacal_types = ['noshear', '1p', '1m']
 
     detected = afw_image.Mask.getPlaneBitMask('DETECTED')
     res = run_metadetect(rng=rng, config=config, **data)
+    diagnostics = res.pop('_diagnostics')
 
     # we remove the DETECTED bit
     assert np.all(res['noshear']['bmask'] & detected == 0)
@@ -209,6 +284,36 @@ def test_lsst_metadetect_shear_bands():
             assert np.any(res[shear][f"{front}_flags"] == 0)
             assert np.all(res[shear]["mfrac"] == 0)
             assert res[shear][flux_name].shape == (25, nband)
+
+    perband = diagnostics['psf_stats_perband']
+    assert perband.size == len(bands)
+
+    wgts = diagnostics['weight_perband']
+    assert len(wgts) == len(bands)
+    assert all(band in bands for band in wgts)
+    for iband, band in enumerate(bands):
+        assert perband['band'][iband] == band
+        if band in shear_bands:
+            assert wgts[band] > 0
+        else:
+            assert wgts[band] == 0
+
+    wgts_list = list(wgts.values())
+    psf_stats = diagnostics['psf_stats_average']
+    T = np.average(perband['T'], weights=wgts_list)
+    e1 = np.average(perband['e1'], weights=wgts_list)
+    e2 = np.average(perband['e2'], weights=wgts_list)
+    g1, g2 = ngmix.shape.e1e2_to_g1g2(e1, e2)
+
+    assert psf_stats['T'] == T
+    assert psf_stats['e1'] == e1
+    assert psf_stats['e2'] == e2
+    assert psf_stats['g1'] == g1
+    assert psf_stats['g2'] == g2
+
+    np.testing.assert_allclose(res['noshear']['psfrec_g'][:, 0], g1)
+    np.testing.assert_allclose(res['noshear']['psfrec_g'][:, 1], g2)
+    np.testing.assert_allclose(res['noshear']['psfrec_T'], T)
 
     for shear in metacal_types:
         assert np.all(res[shear]["shear_bands"] == np.array([["13"]]))
@@ -323,6 +428,7 @@ def test_lsst_zero_weights(show=False):
                 mplt.show()
 
         resdict = run_metadetect(rng=rng, config=None, **data)
+        del resdict['_diagnostics']
 
         if do_zero:
             for shear_type, tres in resdict.items():
@@ -366,6 +472,7 @@ def test_lsst_masked_as_bright(show=False):
             data['noise_mbexp']['i'].mask.array[50:100, 50:100] |= bright
 
         resdict = run_metadetect(rng=rng, config=None, **data)
+        del resdict['_diagnostics']
 
         if show:
             import matplotlib.pyplot as mplt
