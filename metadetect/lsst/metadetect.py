@@ -207,6 +207,9 @@ class MetadetectConfig(Config):
 
     def setDefaults(self):
         super().setDefaults()
+        self.detect_and_deblend.deblend.retarget(ScarletDeblendTask)
+        self.detect_and_deblend.deblend.maxFootprintArea = 0
+        self.detect_and_deblend.deblend.processSingles = True
 
     def validate(self):
         super().validate()
