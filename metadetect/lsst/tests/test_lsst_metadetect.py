@@ -157,7 +157,7 @@ def test_lsst_metadetect_smoke(subtract_sky, metacal_types_option):
             assert len(res[shear][flux_name][0]) == len(bands)
 
 
-@pytest.mark.parametrize("metacal_reconv_option", [None, "fitgauss", "gauss"])
+@pytest.mark.parametrize("metacal_reconv_option", [None, "fitgauss", "azgauss"])
 def test_lsst_metadetect_reconv(metacal_reconv_option):
     rng = np.random.RandomState(seed=116)
 
@@ -179,38 +179,6 @@ def test_lsst_metadetect_reconv(metacal_reconv_option):
         assert test_config['metacal']['reconv_type'] == 'fitgauss'
 
     res = run_metadetect(rng=rng, config=config, **data)  # noqa
-
-
-@pytest.mark.xfail
-def test_lsst_metadetect_reconv_size():
-    """
-    This currently fails because the PSF images have no noise.  fitgauss
-    will outperform gauss for noisy PSFs
-    """
-    rng = np.random.RandomState(seed=232)
-
-    bands = ['r', 'i']
-    sim_data = make_lsst_sim(5520, bands=bands, psf_type='ps')
-    data = do_coadding(rng=rng, sim_data=sim_data, nowarp=True)
-
-    config = {}
-    config['metacal'] = {}
-    config['metacal']['reconv_type'] = 'fitgauss'
-    res_fitgauss = run_metadetect(rng=rng, config=config, **data)  # noqa
-
-    config['metacal']['reconv_type'] = 'gauss'
-    res_gauss = run_metadetect(rng=rng, config=config, **data)  # noqa
-
-    mT_fitgauss = res_fitgauss['noshear']['gauss_psf_T'].mean()
-    mT_gauss = res_gauss['noshear']['gauss_psf_T'].mean()
-
-    fwhm_fitgauss = ngmix.moments.T_to_fwhm(mT_fitgauss)
-    fwhm_gauss = ngmix.moments.T_to_fwhm(mT_gauss)
-
-    assert fwhm_fitgauss < fwhm_gauss, (
-        'expected fitgauss fwhm < gauss fwhm, '
-        f'got {fwhm_fitgauss} > {fwhm_gauss}'
-    )
 
 
 def test_lsst_metadetect_shear_bands_missing():

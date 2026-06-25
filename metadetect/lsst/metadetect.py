@@ -94,8 +94,10 @@ def run_metadetect(
     """
 
     config_override = deepcopy(DEFAULT_MDET_CONFIG)
+
     if config:
-        config_override.update(config)
+        # copy so the pop below won't pop a reference in the input config
+        config_override.update(deepcopy(config))
 
     config = MetadetectConfig()
     config.setDefaults()
@@ -105,11 +107,17 @@ def run_metadetect(
         config_override['detect_and_deblend']['deblend'] = deepcopy(
             DEFAULT_DEBLEND_SCARLET_CONFIG
         )
-        assert config_override['detect_and_deblend']['deblend'].pop('name') == 'scarlet'
+        assert (
+            config_override['detect_and_deblend']['deblend'].pop('name')
+            == 'scarlet'
+        )
         config.detect_and_deblend.deblend.retarget(ScarletDeblendTask)
     elif deblender == 'sdss':
         # SDSS deblender is the default, so no need to override
-        assert config_override['detect_and_deblend']['deblend'].pop('name') == 'sdss'
+        assert (
+            config_override['detect_and_deblend']['deblend'].pop('name')
+            == 'sdss'
+        )
     else:
         raise ValueError(f"Unknown deblender: {deblender}")
 
@@ -148,10 +156,13 @@ class MetacalConfig(Config):
 
     reconv_type = ChoiceField[str](
         doc="Type of reconvolution kernel to use",
-        default="fitgauss",
+        default="azgauss",
         allowed={
             "fitgauss": "Use a gaussian fit to determine reconvolution kernel",
-            "gauss": "Use k-space power to determine reconvolution kernel",
+            "azgauss": (
+                "Use noise robust, k-space power to determine reconvolution "
+                "kernel"
+            ),
         },
     )
 
@@ -267,7 +278,9 @@ class MetadetectTask(Task):
         for shear_str, mcal_mbexp in mdict.items():
             if rng is not None:
                 dbtask.rng = rng
-            sources, detexp, model_data = dbtask.run(mbexp=mcal_mbexp, show=show)
+            sources, detexp, model_data = dbtask.run(
+                mbexp=mcal_mbexp, show=show,
+            )
 
             res = measure.measure(
                 mbexp=mcal_mbexp,
