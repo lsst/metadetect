@@ -1,3 +1,10 @@
+## 0.13.1
+
+### changed
+
+    - use new azgauss reconvolution kernel in lsst.
+    - reworked lsst deblender config
+
 ## 0.13.0 - 2025-12-02, 2026-05-08
 
 ### changed
