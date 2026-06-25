@@ -148,10 +148,10 @@ class MetacalConfig(Config):
 
     reconv_type = ChoiceField[str](
         doc="Type of reconvolution kernel to use",
-        default="fitgauss",
+        default="azgauss",
         allowed={
             "fitgauss": "Use a gaussian fit to determine reconvolution kernel",
-            "gauss": "Use k-space power to determine reconvolution kernel",
+            "azgauss": "Use noise robust, k-space power to determine reconvolution kernel",
         },
     )
 

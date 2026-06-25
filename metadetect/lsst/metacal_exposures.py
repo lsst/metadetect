@@ -2,6 +2,7 @@
 Code to do metacal with lsst exposures
 """
 import numpy as np
+from ngmix.metacal.azgauss_target_psf import get_azgauss_target_psf
 import galsim
 import lsst.afw.image as afw_image
 from .util import (
@@ -209,7 +210,7 @@ def get_metacal_exps(exp, psf_stats=None, types=None, rot=False):
             flux=psf_flux,
         )
     else:
-        gauss_psf = _get_gauss_target_psf(psf_int, flux=psf_flux)
+        gauss_psf = get_azgauss_target_psf(psf_int, flux=psf_flux)
 
     dilation = 1.0 + 2.0 * STEP
     psf_dilated = gauss_psf.dilate(dilation)
