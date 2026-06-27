@@ -2,7 +2,6 @@
 Code to do metacal with lsst exposures
 """
 import numpy as np
-from ngmix.metacal.metacal import _get_gauss_target_psf, _get_ellip_dilation
 import galsim
 import lsst.afw.image as afw_image
 from .util import (
@@ -333,3 +332,55 @@ def _get_fitgauss_target_psf(e1, e2, T, flux):
         sigma=sigma,
         flux=flux,
     )
+
+
+def _get_ellip_dilation(e1, e2, T):
+    """
+    when making a new image after shearing, we need to dilate the PSF to hide
+    modes that get exposed
+    """
+    from ngmix import moments
+
+    irr, irc, icc = moments.e2mom(e1, e2, T)
+
+    mat = np.zeros((2, 2))
+    mat[0, 0] = irr
+    mat[0, 1] = irc
+    mat[1, 0] = irc
+    mat[1, 1] = icc
+
+    eigs = np.linalg.eigvals(mat)
+
+    dilation = eigs.max() / (T / 2.0)
+    dilation = np.sqrt(dilation)
+
+    dilation = 1.0 + 2 * (dilation - 1.0)
+
+    if dilation > 1.1:
+        dilation = 1.1
+
+    return dilation
+
+
+def _get_gauss_target_psf(psf, flux):
+    dk = psf.stepk / 4.0
+
+    small_kval = 1.0e-2  # Find the k where the given psf hits this kvalue
+    smaller_kval = 3.0e-3  # Target PSF will have this kvalue at the same k
+
+    kim = psf.drawKImage(scale=dk)
+    karr_r = kim.real.array
+    # Find the smallest r where the kval < small_kval
+    nk = karr_r.shape[0]
+    kx, ky = np.meshgrid(
+        np.arange(-nk / 2, nk / 2), np.arange(-nk / 2, nk / 2)
+    )
+    ksq = (kx**2 + ky**2) * dk**2
+    ksq_max = np.min(ksq[karr_r < small_kval * psf.flux])
+
+    # We take our target PSF to be the (round) Gaussian that is even smaller at
+    # this ksq
+    # exp(-0.5 * ksq_max * sigma_sq) = smaller_kval
+    sigma_sq = -2.0 * np.log(smaller_kval) / ksq_max
+
+    return galsim.Gaussian(sigma=np.sqrt(sigma_sq), flux=flux)
