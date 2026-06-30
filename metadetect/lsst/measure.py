@@ -187,7 +187,7 @@ class DetectAndDeblendTask(Task):
         xmin, ymin = detexp.getBBox().getMin()
         detexp.writeFits(f"/sdf/scratch/users/k/kannawad/detexp_{xmin}_{ymin}.fits")
 
-        for band, single in mbexp.singles.items():
+        for band, single in zip(mbexp.bands, mbexp.singles):
             single.writeFits(f"/sdf/scratch/users/k/kannawad/{band}_mcal_{xmin}_{ymin}.fits")
 
         table = afw_table.SourceTable.make(self.schema)

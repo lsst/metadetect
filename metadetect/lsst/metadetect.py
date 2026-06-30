@@ -279,7 +279,7 @@ class MetadetectTask(Task):
             types=metacal_types,
         )
 
-        for band, single in mbexp.singles.items():
+        for band, single in zip(mbexp.bands, mbexp.singles):
             xmin, ymin = single.image.getBBox().getMin()
             single.writeFits(f"/sdf/scratch/users/k/kannawad/{band}_orig_{xmin}_{ymin}.fits")
 
