@@ -1,7 +1,6 @@
 import logging
 import numpy as np
 import ngmix
-import lsst.geom as geom
 
 from ngmix.gexceptions import BootPSFFailure, GMixRangeError
 from copy import deepcopy
