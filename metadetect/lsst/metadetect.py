@@ -279,9 +279,9 @@ class MetadetectTask(Task):
             types=metacal_types,
         )
 
-        for single in mbexp.singles:
+        for band, single in mbexp.singles.items():
             xmin, ymin = single.image.getBBox().getMin()
-            single.writeFits(f"/sdf/scratch/users/k/kannawad/{single.band}_orig_{xmin}_{ymin}.fits")
+            single.writeFits(f"/sdf/scratch/users/k/kannawad/{band}_orig_{xmin}_{ymin}.fits")
 
         dbtask = self.detect_and_deblend
         result = {}
