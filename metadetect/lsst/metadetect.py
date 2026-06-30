@@ -279,6 +279,10 @@ class MetadetectTask(Task):
             types=metacal_types,
         )
 
+        for single in mbexp.singles:
+            xmin, ymin = single.image.getBBox().getMin()
+            single.writeFits(f"/sdf/scratch/users/k/kannawad/{single.band}_orig_{xmin}_{ymin}.fits")
+
         dbtask = self.detect_and_deblend
         result = {}
         for shear_str, mcal_mbexp in mdict.items():

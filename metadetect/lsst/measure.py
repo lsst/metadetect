@@ -184,6 +184,12 @@ class DetectAndDeblendTask(Task):
         if not isinstance(detexp, afw_image.ExposureF):
             detexp = afw_image.ExposureF(detexp, deep=True)
 
+        xmin, ymin = detexp.getBBox().getMin()
+        detexp.writeFits(f"/sdf/scratch/users/k/kannawad/detexp_{xmin}_{ymin}.fits")
+
+        for single in mbexp.singles:
+            single.writeFits(f"/sdf/scratch/users/k/kannawad/{single.band}_mcal_{xmin}_{ymin}.fits")
+
         table = afw_table.SourceTable.make(self.schema)
         result = self.detect.run(table, detexp)
         if result is not None:
@@ -202,6 +208,7 @@ class DetectAndDeblendTask(Task):
         if show:
             vis.show_exp(detexp, use_mpl=True, sources=sources)
 
+        sources.writeFits(f"/sdf/scratch/users/k/kannawad/sources_{xmin}_{ymin}.fits")
         return sources, detexp, model_data
 
     def _run_with_sdss(self, detexp, sources):
