@@ -194,7 +194,7 @@ def test_lsst_metadetect_reconv(metacal_reconv_option):
     if metacal_reconv_option is not None:
         assert test_config['metacal']['reconv_type'] == metacal_reconv_option
     else:
-        assert test_config['metacal']['reconv_type'] == 'fitgauss'
+        assert test_config['metacal']['reconv_type'] == 'azgauss'
 
     res = run_metadetect(rng=rng, config=config, **data)  # noqa
 
