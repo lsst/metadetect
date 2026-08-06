@@ -29,6 +29,7 @@ from .defaults import (
     DEFAULT_STAMP_SIZE,
     DEFAULT_SUBTRACT_SKY,
     DEFAULT_PGAUSS_FWHM,
+    DEFAULT_METACAL_CONFIG,
 )
 from . import measure
 from .metacal_exposures import get_metacal_mbexps_fixnoise
@@ -148,7 +149,7 @@ class MetacalConfig(Config):
 
     reconv_type = ChoiceField[str](
         doc="Type of reconvolution kernel to use",
-        default="azgauss",
+        default=DEFAULT_METACAL_CONFIG['reconv_type'],
         allowed={
             "fitgauss": "Use a gaussian fit to determine reconvolution kernel",
             "gauss": "Use k-space power to determine reconvolution kernel",

@@ -8,6 +8,7 @@ import lsst.afw.image as afw_image
 from .util import (
     get_integer_center, get_jacobian, get_stack_kernel_psf, get_mbexp,
 )
+from .defaults import DEFAULT_METACAL_CONFIG
 
 DEFAULT_TYPES = ['noshear', '1p', '1m']
 INTERP = 'lanczos15'
@@ -34,7 +35,7 @@ def get_metacal_mbexps_fixnoise(
     config: dict, optional
         The metacal config. The 'reconv_type' key selects the reconvolution
         kernel, one of ('fitgauss', 'azgauss', 'gauss'), defaulting to
-        'azgauss' when absent.
+        the value defined in defaults.py when absent.
 
     Returns
     -------
@@ -76,7 +77,7 @@ def get_metacal_mbexps(mbexp, types=None, rot=False, psf_stats=None, *,
     config: dict, optional
         The metacal config. The 'reconv_type' key selects the reconvolution
         kernel, one of ('fitgauss', 'azgauss', 'gauss'), defaulting to
-        'azgauss' when absent.
+        the value defined in defaults.py when absent.
 
     Returns
     -------
@@ -142,7 +143,7 @@ def get_metacal_exps_fixnoise(exp, noise_exp, psf_stats=None, types=None, *,
     config: dict, optional
         The metacal config. The 'reconv_type' key selects the reconvolution
         kernel, one of ('fitgauss', 'azgauss', 'gauss'), defaulting to
-        'azgauss' when absent.
+        the value defined in defaults.py when absent.
 
     Returns
     -------
@@ -187,7 +188,7 @@ def get_metacal_exps(exp, psf_stats=None, types=None, rot=False, *,
     config: dict, optional
         The metacal config. The 'reconv_type' key selects the reconvolution
         kernel, one of ('fitgauss', 'azgauss', 'gauss'), defaulting to
-        'azgauss' when absent.
+        the value defined in defaults.py when absent.
 
     Returns
     -------
@@ -197,7 +198,9 @@ def get_metacal_exps(exp, psf_stats=None, types=None, rot=False, *,
     if types is None:
         types = DEFAULT_TYPES
 
-    reconv_type = (config or {}).get('reconv_type', 'azgauss')
+    reconv_type = (config or {}).get(
+        'reconv_type', DEFAULT_METACAL_CONFIG['reconv_type'],
+    )
 
     cen, _ = get_integer_center(exp.getWcs(), exp.getBBox(), as_double=True)
 

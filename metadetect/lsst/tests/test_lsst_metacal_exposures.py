@@ -92,10 +92,11 @@ def test_metacal_exps(ntrial=10, show=False):
 
         types = ('noshear', '1p', '1m', '2p', '2m')
         mdict_obs = get_all_metacal(
-            obs, use_noise_image=True, types=types, psf='azgauss',
+            obs, use_noise_image=True, types=types,
+            psf='azgauss',
         )
         mdict_exp, noise_mdict = get_metacal_exps_fixnoise(
-            exp, nexp, types=types,
+            exp, nexp, types=types, config={'reconv_type': 'azgauss'}
         )
 
         for key in mdict_obs:
@@ -174,10 +175,11 @@ def test_metacal_mbexp(ntrial=10, show=False):
 
         types = ('noshear', '1p', '1m', '2p', '2m')
         mdict_obs = get_all_metacal(
-            mbobs, use_noise_image=True, types=types, psf='azgauss',
+            mbobs, use_noise_image=True, types=types,
+            psf='azgauss',
         )
         mdict_mbexp, noise_mdict = get_metacal_mbexps_fixnoise(
-            mbexp, noise_mbexp, types=types,
+            mbexp, noise_mbexp, types=types, config={'reconv_type': 'azgauss'},
         )
 
         for key in mdict_obs:
