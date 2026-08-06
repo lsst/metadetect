@@ -419,9 +419,9 @@ class ModelSubtractor(object):
 
         model_data = self.model_data
 
-        bands = model_data.metadata["bands"]
-        model_psf = model_data.metadata["model_psf"]
-        observed_psf = model_data.metadata["psf"]
+        bands = model_data.bands
+        model_psf = model_data.model_psf
+        observed_psf = model_data.psf
 
         for full_blend_data in model_data.blends.values():
             for blend_data in full_blend_data.children.values():
