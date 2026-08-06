@@ -151,7 +151,9 @@ class MetacalConfig(Config):
         default="azgauss",
         allowed={
             "fitgauss": "Use a gaussian fit to determine reconvolution kernel",
-            "azgauss": "Use noise robust, k-space power to determine reconvolution kernel",
+            "gauss": "Use k-space power to determine reconvolution kernel",
+            "azgauss": ("Use noise robust, k-space power to determine "
+                        "reconvolution kernel"),
         },
     )
 
@@ -274,6 +276,7 @@ class MetadetectTask(Task):
             noise_mbexp=noise_mbexp,
             psf_stats=perband_psf_stats,
             types=metacal_types,
+            config=config['metacal'],
         )
 
         dbtask = self.detect_and_deblend
