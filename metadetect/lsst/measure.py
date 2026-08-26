@@ -172,7 +172,7 @@ class DetectAndDeblendTask(Task):
         self.rng = np.random.RandomState(seed=self.config.seed)
         self.schema = schema
 
-    def run(self, mbexp, show=False):
+    def run(self, mbexp, external_sources=None, show=False):
         if len(mbexp.singles) > 1:
             detexp = util.coadd_exposures(mbexp.singles)
             if detexp is None:
@@ -184,12 +184,19 @@ class DetectAndDeblendTask(Task):
         if not isinstance(detexp, afw_image.ExposureF):
             detexp = afw_image.ExposureF(detexp, deep=True)
 
-        table = afw_table.SourceTable.make(self.schema)
-        result = self.detect.run(table, detexp)
-        if result is not None:
-            sources = result.sources
+        # Allow an external source catalog for deblending
+        if external_sources is None:
+            # Normal behavior: detect sources on this exposure
+            table = afw_table.SourceTable.make(self.schema)
+            result = self.detect.run(table, detexp)
+
+            if result is not None:
+                sources = result.sources
+            else:
+                sources = []
         else:
-            sources = []
+            # Use the externally supplied catalog; skip detection
+            sources = external_sources
 
         if isinstance(self.deblend, ScarletDeblendTask):
             LOG.info('Using Scarlet deblender')
@@ -205,7 +212,6 @@ class DetectAndDeblendTask(Task):
         return sources, detexp, model_data
 
     def _run_with_sdss(self, detexp, sources):
-
         if len(sources) > 0:
             self.deblend.run(detexp, sources)
 

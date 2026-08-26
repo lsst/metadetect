@@ -23,6 +23,8 @@ from .. import procflags
 
 from .skysub import subtract_sky_mbexp
 
+from .shifting import shift_objects
+
 from .defaults import (
     DEFAULT_DEBLEND_SCARLET_CONFIG,
     DEFAULT_MDET_CONFIG,
@@ -37,13 +39,25 @@ from . import util
 
 LOG = logging.getLogger('lsst_metadetect')
 
+# build catalog:
+# ns: detections(noshear) # objects in dp2 catalog
+# 1p: detections(1p (w/ centroid shift)) - or None
+# etc...
+
+# external loop to calulate centroid shifts for metacal
+# as opposed to calculating shifts on the fly
+# push current changes to branch on lsst/metadetect
+
 
 def run_metadetect(
     mbexp,
     noise_mbexp,
     rng,
     deblender='sdss',
+    detection_scheme='internal',
+    shift_method='galsim',
     mfrac_mbexp=None,
+    external_sources=None,
     ormasks=None,
     config=None,
     show=False,
@@ -60,9 +74,18 @@ def run_metadetect(
         The exposures to process
     noise_mbexp: lsst.afw.image.MultibandExposure
         The noise exposures for metacal
+    detection_scheme : str
+        Method of object detection to either match traditional metadetect
+        ('internal'), or metacal ('external') with detection bias reintroduced
+        but matched to the Object Catalog, or 'both'. Defaults to 'internal'.
+    shift_method : str
+        Method of shifting centroids for the external detection scheme. Options
+        also include None, 'sdss_centroid', and 'a_matrix'.
     mfrac_mbexp: lsst.afw.image.MultibandExposure, optional
         The fraction of masked exposures for the pixel; for coadds this is the
         fraction of input images contributing to each pixel that were masked
+    external_sources : lsst.afw.table.SourceCatalog
+        If detection_scheme 'external' or 'both', must include detection catalog
     ormasks: list of images, optional
         A list of logical or masks, such as created for all images that went
         into a coadd.
@@ -119,11 +142,14 @@ def run_metadetect(
     config.validate()
     task = MetadetectTask(config=config)
     result = task.run(
-        mbexp,
-        noise_mbexp,
-        rng,
-        mfrac_mbexp,
-        ormasks,
+        mbexp=mbexp,
+        noise_mbexp=noise_mbexp,
+        rng=rng,
+        detection_scheme=detection_scheme,
+        shift_method=shift_method,
+        external_sources=external_sources,
+        mfrac_mbexp=mfrac_mbexp,
+        ormasks=ormasks,
         show=show,
         border=border,
     )
@@ -228,6 +254,9 @@ class MetadetectTask(Task):
         mbexp,
         noise_mbexp,
         rng,
+        detection_scheme='internal',
+        shift_method='galsim',
+        external_sources=None,
         mfrac_mbexp=None,
         ormasks=None,
         show=False,
@@ -282,32 +311,127 @@ class MetadetectTask(Task):
 
         dbtask = self.detect_and_deblend
         result = {}
-        for shear_str, mcal_mbexp in mdict.items():
-            if rng is not None:
-                dbtask.rng = rng
-            sources, detexp, model_data = dbtask.run(mbexp=mcal_mbexp, show=show)
 
-            res = measure.measure(
-                mbexp=mcal_mbexp,
-                model_data=model_data,
-                meas_task=dbtask.meas,
-                detexp=detexp,
-                sources=sources,
-                config=config,
-                rng=rng,
-                show=show,
-                border=border,
+        # TEST AREA FOR INTERTWINING METACAL
+        if detection_scheme not in ("internal", "external", "both"):
+            raise ValueError(
+                f"Unknown detection_scheme: {detection_scheme}"
             )
 
-            if res is not None:
-                band = mcal_mbexp.bands[0]
-                exp = mcal_mbexp[band]
+        if rng is not None:
+            dbtask.rng = rng
 
-                add_mfrac(config=config, mfrac=mfrac, res=res, exp=exp)
-                add_ormask(ormask, res)
-                add_original_psf(psf_stats, res)
+        # Preserve the old result structure for individual modes.
+        # In "both", keep the two workflows independent.
+        if detection_scheme == "both":
+            result = {
+                "internal": {},
+                "external": {},
+            }
+        else:
+            result = {}
 
-            result[shear_str] = res
+        if detection_scheme in ("internal", "both"):
+            internal_result = (
+                result["internal"]
+                if detection_scheme == "both"
+                else result
+            )
+
+            for shear_str, mcal_mbexp in mdict.items():
+                sources, detexp, model_data = dbtask.run(
+                    mbexp=mcal_mbexp,
+                    show=show,
+                    external_sources=None,
+                )
+
+                res = measure.measure(
+                    mbexp=mcal_mbexp,
+                    model_data=model_data,
+                    meas_task=dbtask.meas,
+                    detexp=detexp,
+                    sources=sources,
+                    config=config,
+                    rng=rng,
+                    show=show,
+                    border=border,
+                )
+
+                if res is not None:
+                    band = mcal_mbexp.bands[0]
+                    exp = mcal_mbexp[band]
+
+                    add_mfrac(config=config, mfrac=mfrac, res=res, exp=exp)
+                    add_ormask(ormask, res)
+                    add_original_psf(psf_stats, res)
+
+                internal_result[shear_str] = res
+
+        if detection_scheme in ("external", "both"):
+            external_result = (
+                result["external"]
+                if detection_scheme == "both"
+                else result
+            )
+
+            sources, detexp, model_data = dbtask.run(
+                mbexp=mbexp,
+                show=show,
+                external_sources=external_sources,
+            )
+
+            # Each shear state must start with an independent copy
+            # of the original external catalog.
+            for shear_str, mcal_mbexp in mdict.items():
+
+                sources_shear = shift_objects(
+                    shift_method,
+                    sources.copy(deep=True),
+                    shear_str,
+                    mcal_mbexp,
+                    dbtask.meas,
+                )
+
+                res = measure.measure(
+                    mbexp=mcal_mbexp,
+                    model_data=model_data,
+                    meas_task=dbtask.meas,
+                    detexp=detexp,
+                    sources=sources_shear,
+                    config=config,
+                    rng=rng,
+                    show=show,
+                    border=border,
+                )
+
+                if res is not None:
+                    band = mcal_mbexp.bands[0]
+                    exp = mcal_mbexp[band]
+
+                    add_mfrac(config=config, mfrac=mfrac, res=res, exp=exp)
+                    add_ormask(ormask, res)
+                    add_original_psf(psf_stats, res)
+
+                external_result[shear_str] = res
+
+        # Diagnostics
+        diagnostics = {
+            "psf_stats_perband": psf_stats_perband,
+            "weight_perband": {
+                band: wgt for band, wgt in zip(mbexp.bands, wgts)
+            },
+            "psf_stats_average": psf_stats,
+            "detection_scheme": detection_scheme,
+        }
+
+        if detection_scheme == "both":
+            result["internal"]["_diagnostics"] = diagnostics.copy()
+            result["external"]["_diagnostics"] = diagnostics.copy()
+        else:
+            result["_diagnostics"] = diagnostics
+
+        return result
+        # END TEST AREA
 
         # For additional information needed only for unit tests, include them
         # under a catch-all key called '_diagnostics'. The calling code must
@@ -316,6 +440,7 @@ class MetadetectTask(Task):
             'psf_stats_perband': psf_stats_perband,
             'weight_perband': {band: wgt for band, wgt in zip(mbexp.bands, wgts)},
             'psf_stats_average': psf_stats,
+            'detection_scheme': detection_scheme,  # For bookkeeping
         }
 
         return result
