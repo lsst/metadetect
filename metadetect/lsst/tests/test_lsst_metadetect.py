@@ -173,7 +173,9 @@ def test_lsst_metadetect_smoke(subtract_sky, metacal_types_option):
     skip_tests_on_simulations,
     reason='descwl_shear_sims and/or descwl_coadd not available'
 )
-@pytest.mark.parametrize("metacal_reconv_option", [None, "fitgauss", "gauss"])
+@pytest.mark.parametrize(
+    "metacal_reconv_option", [None, "fitgauss", "azgauss", "gauss"]
+)
 def test_lsst_metadetect_reconv(metacal_reconv_option):
     rng = np.random.RandomState(seed=116)
 
@@ -192,7 +194,7 @@ def test_lsst_metadetect_reconv(metacal_reconv_option):
     if metacal_reconv_option is not None:
         assert test_config['metacal']['reconv_type'] == metacal_reconv_option
     else:
-        assert test_config['metacal']['reconv_type'] == 'fitgauss'
+        assert test_config['metacal']['reconv_type'] == 'azgauss'
 
     res = run_metadetect(rng=rng, config=config, **data)  # noqa
 

@@ -2,11 +2,13 @@
 Code to do metacal with lsst exposures
 """
 import numpy as np
+from ngmix.metacal.azgauss_target_psf import get_azgauss_target_psf
 import galsim
 import lsst.afw.image as afw_image
 from .util import (
     get_integer_center, get_jacobian, get_stack_kernel_psf, get_mbexp,
 )
+from .defaults import DEFAULT_METACAL_CONFIG
 
 DEFAULT_TYPES = ['noshear', '1p', '1m']
 INTERP = 'lanczos15'
@@ -14,7 +16,7 @@ STEP = 0.01
 
 
 def get_metacal_mbexps_fixnoise(
-    mbexp, noise_mbexp, types=None, psf_stats=None,
+    mbexp, noise_mbexp, types=None, psf_stats=None, *, config=None,
 ):
     """
     Get metacal MultibandExposures with fixed noise
@@ -30,6 +32,10 @@ def get_metacal_mbexps_fixnoise(
         Must have e1, e2, T entries and be same length as mbexp
     types: list, optional
         The metacal types, e.g. ('noshear', '1p', '1m')
+    config: dict, optional
+        The metacal config. The 'reconv_type' key selects the reconvolution
+        kernel, one of ('fitgauss', 'azgauss', 'gauss'), defaulting to
+        the value defined in defaults.py when absent.
 
     Returns
     -------
@@ -38,10 +44,11 @@ def get_metacal_mbexps_fixnoise(
     """
 
     mdict = get_metacal_mbexps(
-        mbexp=mbexp, psf_stats=psf_stats, types=types,
+        mbexp=mbexp, psf_stats=psf_stats, types=types, config=config,
     )
     noise_mdict = get_metacal_mbexps(
         mbexp=noise_mbexp, psf_stats=psf_stats, types=types, rot=True,
+        config=config,
     )
     for shear_type in mdict:
         for exp, nexp in zip(mdict[shear_type], noise_mdict[shear_type]):
@@ -51,7 +58,8 @@ def get_metacal_mbexps_fixnoise(
     return mdict, noise_mdict
 
 
-def get_metacal_mbexps(mbexp, types=None, rot=False, psf_stats=None):
+def get_metacal_mbexps(mbexp, types=None, rot=False, psf_stats=None, *,
+                       config=None):
     """
     Get metacal MultibandExposures
 
@@ -66,6 +74,10 @@ def get_metacal_mbexps(mbexp, types=None, rot=False, psf_stats=None):
         The metacal types, e.g. ('noshear', '1p', '1m')
     rot: bool, optional
         If set to True, rotate before shearing, then rotate back.
+    config: dict, optional
+        The metacal config. The 'reconv_type' key selects the reconvolution
+        kernel, one of ('fitgauss', 'azgauss', 'gauss'), defaulting to
+        the value defined in defaults.py when absent.
 
     Returns
     -------
@@ -96,6 +108,7 @@ def get_metacal_mbexps(mbexp, types=None, rot=False, psf_stats=None):
 
         this_mdict = get_metacal_exps(
             exp, psf_stats=psf_band_stats, types=types, rot=rot,
+            config=config,
         )
 
         for shear_type in this_mdict:
@@ -111,7 +124,8 @@ def get_metacal_mbexps(mbexp, types=None, rot=False, psf_stats=None):
     return mdict
 
 
-def get_metacal_exps_fixnoise(exp, noise_exp, psf_stats=None, types=None):
+def get_metacal_exps_fixnoise(exp, noise_exp, psf_stats=None, types=None, *,
+                              config=None):
     """
     Get metacal exposures with fixed noise
 
@@ -126,6 +140,10 @@ def get_metacal_exps_fixnoise(exp, noise_exp, psf_stats=None, types=None):
         Must have e1, e2, T entries
     types: list, optional
         The metacal types, e.g. ('noshear', '1p', '1m')
+    config: dict, optional
+        The metacal config. The 'reconv_type' key selects the reconvolution
+        kernel, one of ('fitgauss', 'azgauss', 'gauss'), defaulting to
+        the value defined in defaults.py when absent.
 
     Returns
     -------
@@ -135,10 +153,10 @@ def get_metacal_exps_fixnoise(exp, noise_exp, psf_stats=None, types=None):
         types = DEFAULT_TYPES
 
     mdict = get_metacal_exps(
-        exp, psf_stats=psf_stats, types=types,
+        exp, psf_stats=psf_stats, types=types, config=config,
     )
     noise_mdict = get_metacal_exps(
-        noise_exp, psf_stats=psf_stats, types=types, rot=True,
+        noise_exp, psf_stats=psf_stats, types=types, rot=True, config=config,
     )
 
     for shear_type in types:
@@ -151,7 +169,8 @@ def get_metacal_exps_fixnoise(exp, noise_exp, psf_stats=None, types=None):
     return mdict, noise_mdict
 
 
-def get_metacal_exps(exp, psf_stats=None, types=None, rot=False):
+def get_metacal_exps(exp, psf_stats=None, types=None, rot=False, *,
+                     config=None):
     """
     Get metacal exposures
 
@@ -166,6 +185,10 @@ def get_metacal_exps(exp, psf_stats=None, types=None, rot=False):
         The metacal types, e.g. ('noshear', '1p', '1m')
     rot: bool, optional
         If set to True, rotate before shearing, then rotate back.
+    config: dict, optional
+        The metacal config. The 'reconv_type' key selects the reconvolution
+        kernel, one of ('fitgauss', 'azgauss', 'gauss'), defaulting to
+        the value defined in defaults.py when absent.
 
     Returns
     -------
@@ -174,6 +197,10 @@ def get_metacal_exps(exp, psf_stats=None, types=None, rot=False):
 
     if types is None:
         types = DEFAULT_TYPES
+
+    reconv_type = (config or {}).get(
+        'reconv_type', DEFAULT_METACAL_CONFIG['reconv_type'],
+    )
 
     cen, _ = get_integer_center(exp.getWcs(), exp.getBBox(), as_double=True)
 
@@ -201,15 +228,23 @@ def get_metacal_exps(exp, psf_stats=None, types=None, rot=False):
         galsim.Deconvolve(psf_int),
     )
 
-    if psf_stats is not None:
-        gauss_psf = _get_fitgauss_target_psf(
-            e1=psf_stats['e1'],
-            e2=psf_stats['e2'],
-            T=psf_stats['T'],
-            flux=psf_flux,
-        )
-    else:
-        gauss_psf = _get_gauss_target_psf(psf_int, flux=psf_flux)
+    match reconv_type:
+        case 'fitgauss':
+            assert psf_stats is not None, (
+                "psf_stats must be provided for reconv_type='fitgauss'"
+            )
+            gauss_psf = _get_fitgauss_target_psf(
+                e1=psf_stats['e1'],
+                e2=psf_stats['e2'],
+                T=psf_stats['T'],
+                flux=psf_flux,
+            )
+        case 'azgauss':
+            gauss_psf = get_azgauss_target_psf(psf_int, flux=psf_flux)
+        case 'gauss':
+            gauss_psf = _get_gauss_target_psf(psf_int, flux=psf_flux)
+        case _:
+            raise ValueError(f'unsupported reconv_type: {reconv_type!r}')
 
     dilation = 1.0 + 2.0 * STEP
     psf_dilated = gauss_psf.dilate(dilation)

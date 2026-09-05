@@ -29,6 +29,7 @@ from .defaults import (
     DEFAULT_STAMP_SIZE,
     DEFAULT_SUBTRACT_SKY,
     DEFAULT_PGAUSS_FWHM,
+    DEFAULT_METACAL_CONFIG,
 )
 from . import measure
 from .metacal_exposures import get_metacal_mbexps_fixnoise
@@ -148,10 +149,12 @@ class MetacalConfig(Config):
 
     reconv_type = ChoiceField[str](
         doc="Type of reconvolution kernel to use",
-        default="fitgauss",
+        default=DEFAULT_METACAL_CONFIG['reconv_type'],
         allowed={
             "fitgauss": "Use a gaussian fit to determine reconvolution kernel",
             "gauss": "Use k-space power to determine reconvolution kernel",
+            "azgauss": ("Use noise robust, k-space power to determine "
+                        "reconvolution kernel"),
         },
     )
 
@@ -274,6 +277,7 @@ class MetadetectTask(Task):
             noise_mbexp=noise_mbexp,
             psf_stats=perband_psf_stats,
             types=metacal_types,
+            config=config['metacal'],
         )
 
         dbtask = self.detect_and_deblend
