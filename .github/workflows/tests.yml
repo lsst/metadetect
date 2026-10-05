@@ -48,6 +48,8 @@ jobs:
             always_yes: true
           create-args: >-
             python=${{ matrix.pyver }}
+            lsst-versions
+            setuptools
             pip
 
       - name: configure conda and install code

@@ -53,6 +53,8 @@ jobs:
             stackvana=0
             lsstdesc-weaklensingdeblending
             lsstdesc-wl-shear-sims
+            lsst-versions
+            setuptools
             pip
 
       - name: configure conda and install code

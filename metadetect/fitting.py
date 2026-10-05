@@ -548,11 +548,11 @@ def make_coadd_obs(mbobs, shear_bands=None):
     for shear_band in shear_bands[1:]:
         obs = mbobs[shear_band][0]
         if (
-            (repr(fobs.jacobian) != repr(obs.jacobian))
+            (fobs.jacobian != obs.jacobian)
             or (fobs.image.shape != obs.image.shape)
             or (not fobs.has_psf())
             or (not obs.has_psf())
-            or (repr(fobs.psf.jacobian) != repr(obs.psf.jacobian))
+            or (fobs.psf.jacobian != obs.psf.jacobian)
             or (fobs.psf.image.shape != obs.psf.image.shape)
         ):
             flags |= procflags.INCONSISTENT_BANDS
