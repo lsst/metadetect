@@ -221,11 +221,15 @@ def make_mbobs_sim(
             g2=rng.uniform(low=-0.1, high=0.1),
         )
 
+        # Adding 0.0 turns -0.0 into 0.0 when wcs_var_scale is zero. Without
+        # it the sign of the zero propagates through galsim's complex shear
+        # arithmetic (on Python >= 3.14), giving per-band WCS terms that are
+        # equal in value but differ in their repr.
         gs_wcs = galsim.ShearWCS(
             0.25,
             galsim.Shear(
-                g1=rng.uniform(low=-0.1, high=0.1) * wcs_var_scale,
-                g2=rng.uniform(low=-0.1, high=0.1) * wcs_var_scale,
+                g1=rng.uniform(low=-0.1, high=0.1) * wcs_var_scale + 0.0,
+                g2=rng.uniform(low=-0.1, high=0.1) * wcs_var_scale + 0.0,
             )
         ).jacobian()
         offset = rng.uniform(low=-0.5, high=0.5, size=2) * wcs_var_scale
