@@ -1,6 +1,6 @@
 """
-Centroid shifting function - note that shifting centroids is necessary for the
-metacalibration procedure within the metadetection coadd framework
+For the purpose of shifting centroids in the metacal procedure which is
+necessary within the coadd framework of metadetect
 """
 
 import numpy as np
@@ -86,11 +86,10 @@ def shift_objects(
 
         if shift_method == "galsim":
 
-            if shear_str == 'noshear':
-                shear = galsim.Shear(g1=0, g2=0)
-
-            else:
+            if shear_str != 'noshear':
                 shear = get_shear_from_type(shear_str)
+            else:
+                shear = galsim.Shear(g1=0, g2=0)
 
             pos = galsim.PositionD(x0 - xc, y0 - yc)
             sheared_pos = pos.shear(shear)

@@ -265,6 +265,17 @@ class MetadetectTask(Task):
         # This is to support methods that are not yet refactored.
         config = frozendict(self.config.toDict())
 
+        # Detection scheme checks
+        if detection_scheme == 'internal' and external_sources is not None:
+            raise ValueError(
+                "Cannot accept a source catalog with internal detection scheme!"
+            )
+
+        if detection_scheme in ('both', 'external') and external_sources is None:
+            raise ValueError(
+                "External detection scheme requires a source catalog!"
+            )
+
         shear_bands = config['shear_bands'] or mbexp.bands
         if not all(band in mbexp.bands for band in shear_bands):
             raise RuntimeError(
@@ -315,28 +326,19 @@ class MetadetectTask(Task):
         # TEST AREA FOR INTERTWINING METACAL
         if detection_scheme not in ("internal", "external", "both"):
             raise ValueError(
-                f"Unknown detection_scheme: {detection_scheme}"
+                f"Unknown detection scheme: {detection_scheme}"
             )
 
         if rng is not None:
             dbtask.rng = rng
 
-        # Preserve the old result structure for individual modes.
-        # In "both", keep the two workflows independent.
-        if detection_scheme == "both":
-            result = {
-                "internal": {},
-                "external": {},
-            }
-        else:
-            result = {}
+        result = {
+            "internal": {},
+            "external": {},
+        }
 
         if detection_scheme in ("internal", "both"):
-            internal_result = (
-                result["internal"]
-                if detection_scheme == "both"
-                else result
-            )
+            internal_result = result["internal"]
 
             for shear_str, mcal_mbexp in mdict.items():
                 sources, detexp, model_data = dbtask.run(
@@ -367,12 +369,20 @@ class MetadetectTask(Task):
 
                 internal_result[shear_str] = res
 
+            # For additional information needed only for unit tests, include them
+            # under a catch-all key called '_diagnostics'. The calling code must
+            # not rely on this key being present or having the same structure.
+            internal_result["_diagnostics"] = {
+                "psf_stats_perband": psf_stats_perband,
+                "weight_perband": {
+                    band: wgt for band, wgt in zip(mbexp.bands, wgts)
+                },
+                "psf_stats_average": psf_stats,
+                "detection_scheme": detection_scheme,
+            }
+
         if detection_scheme in ("external", "both"):
-            external_result = (
-                result["external"]
-                if detection_scheme == "both"
-                else result
-            )
+            external_result = result["external"]
 
             sources, detexp, model_data = dbtask.run(
                 mbexp=mbexp,
@@ -414,34 +424,18 @@ class MetadetectTask(Task):
 
                 external_result[shear_str] = res
 
-        # Diagnostics
-        diagnostics = {
-            "psf_stats_perband": psf_stats_perband,
-            "weight_perband": {
-                band: wgt for band, wgt in zip(mbexp.bands, wgts)
-            },
-            "psf_stats_average": psf_stats,
-            "detection_scheme": detection_scheme,
-        }
-
-        if detection_scheme == "both":
-            result["internal"]["_diagnostics"] = diagnostics.copy()
-            result["external"]["_diagnostics"] = diagnostics.copy()
-        else:
-            result["_diagnostics"] = diagnostics
-
-        return result
+            # For additional information needed only for unit tests, include them
+            # under a catch-all key called '_diagnostics'. The calling code must
+            # not rely on this key being present or having the same structure.
+            external_result["_diagnostics"] = {
+                "psf_stats_perband": psf_stats_perband,
+                "weight_perband": {
+                    band: wgt for band, wgt in zip(mbexp.bands, wgts)
+                },
+                "psf_stats_average": psf_stats,
+                "detection_scheme": detection_scheme,
+            }
         # END TEST AREA
-
-        # For additional information needed only for unit tests, include them
-        # under a catch-all key called '_diagnostics'. The calling code must
-        # not rely on this key being present or having the same structure.
-        result['_diagnostics'] = {
-            'psf_stats_perband': psf_stats_perband,
-            'weight_perband': {band: wgt for band, wgt in zip(mbexp.bands, wgts)},
-            'psf_stats_average': psf_stats,
-            'detection_scheme': detection_scheme,  # For bookkeeping
-        }
 
         return result
 
